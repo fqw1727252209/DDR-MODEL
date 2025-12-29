@@ -1,0 +1,15 @@
+{
+    "simconfig": {
+        "AddressOffset": 0,
+        "CheckTLM2Protocol": false,
+        "DatabaseRecording": true,
+        "Debug": true,
+        "EnableWindowing": true,
+        "PowerAnalysis": false,
+        "SimulationName": "example",
+        "SimulationProgressBar": false,
+        "StoreMode": "Store",
+        "UseMalloc": false,
+        "WindowSize": 1000
+    }
+}

@@ -1,0 +1,39 @@
+# Build directories
+build/
+cmake-build*/
+out/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+
+# Executables
+*.exe
+*.out
+
+# Logs (keep logs directory but ignore log files)
+build/logs/*.log
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Dependencies (these are fetched by CMake)
+lib/DRAMsys/lib/nlohmann_json/
+lib/DRAMsys/lib/sqlite3/
+
+# Temporary files
+*.tmp
+*.temp
