@@ -37,3 +37,14 @@ lib/DRAMsys/lib/sqlite3/
 # Temporary files
 *.tmp
 *.temp
+
+# Database files (DRAMSys statistics)
+*.db
+*.sqlite
+
+# Core dumps
+core
+core.*
+
+# Compilation database
+compile_commands.json

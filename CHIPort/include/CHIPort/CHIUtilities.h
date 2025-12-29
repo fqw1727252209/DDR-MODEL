@@ -20,7 +20,7 @@ inline uint64_t transaction_valid_bytes_mask(const ARM::CHI::Payload& payload)
     const unsigned last_byte = (payload.address & 0x3f) | align_mask;
 
     const uint64_t all_ones = ~uint64_t(0);
-    const uint64_t valid_bytes = (all_ones >> (63 - last_byte)) & (all_ones << first_byte);
+    const uint64_t valid_bytes = all_ones >> (63 - last_byte) & all_ones << first_byte;
 
     return valid_bytes;
 }

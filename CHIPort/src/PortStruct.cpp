@@ -370,7 +370,7 @@ RetryResourceManager::get_type_max_qos(unsigned type_index) const
     {
         assert(i>=0);
         auto& src_id_vector = qos_srcid_matrix.at(i);
-        for(auto& src_id_cnts: src_id_vector)
+        for(auto src_id_cnts: src_id_vector)
         {
             if(src_id_cnts > 0)
                 return i;
@@ -395,8 +395,8 @@ RetryResourceManager::state_update()
                 next_state = State::Write_Grant;
             break;
         case State::Read_Grant:
-            if(cmo_condition && ((get_type_max_qos(2) > get_type_max_qos(0) && get_type_max_qos(2) > get_type_max_qos(1) && type_timeout_counter.at(0) < req_type_timeout_threshold))
-            || (!wr_condition && !rd_condition) || type_timeout_counter.at(2) >= req_type_timeout_threshold)
+            if(cmo_condition && ((get_type_max_qos(2) > get_type_max_qos(0) && get_type_max_qos(2) > get_type_max_qos(1) && type_timeout_counter.at(0) < req_type_timeout_threshold)
+            || (!wr_condition && !rd_condition) || type_timeout_counter.at(2) >= req_type_timeout_threshold))
                 next_state = State::CMO_Grant;
             else if(wr_condition && ((get_type_max_qos(0) > get_type_max_qos(1)) || !rd_condition || type_timeout_counter.at(0) >= req_type_timeout_threshold))
                 next_state = State::Write_Grant;
@@ -404,8 +404,8 @@ RetryResourceManager::state_update()
                 next_state = State::Read_Grant;
             break;
         case State::CMO_Grant:
-            if(wr_condition && ((get_type_max_qos(0) > get_type_max_qos(1) && get_type_max_qos(0) > get_type_max_qos(2) && type_timeout_counter.at(1) < req_type_timeout_threshold))
-            || (!rd_condition && !cmo_condition) || type_timeout_counter.at(0) >= req_type_timeout_threshold)
+            if(wr_condition && ((get_type_max_qos(0) > get_type_max_qos(1) && get_type_max_qos(0) > get_type_max_qos(2) && type_timeout_counter.at(1) < req_type_timeout_threshold)
+            || (!rd_condition && !cmo_condition) || type_timeout_counter.at(0) >= req_type_timeout_threshold))
                 next_state = State::Write_Grant;
             else if(rd_condition && ((get_type_max_qos(1) > get_type_max_qos(2)) || !cmo_condition || type_timeout_counter.at(1) >= req_type_timeout_threshold))
                 next_state = State::Read_Grant;
@@ -446,13 +446,13 @@ RetryResourceManager::gen_pcrd_rsp()
 
 
 
-WdataBufferEntry::WdataBufferEntry(const unsigned data_width_bytes)
+WdataBufferEntry::WdataBufferEntry(const unsigned data_width_bytes = 16)
 {
     memset(data_words, 255, 64);
     this->beat_count = 64 / data_width_bytes; // cache line data width_bytes = 16
 }
 
-WdataBufferEntry::WdataBufferEntry(const CHIFlit& req_flit, const unsigned data_width_bytes)
+WdataBufferEntry::WdataBufferEntry(const CHIFlit& req_flit, const unsigned data_width_bytes = 16)
 {
     memset(data_words, 255, 64);
     const unsigned size_bytes = 1 << req_flit.payload.size;

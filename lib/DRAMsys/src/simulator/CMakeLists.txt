@@ -1,4 +1,4 @@
-# Copyright (c) 2021, RPTU Kaiserslautern-Landau
+# Copyright (c) 2020, RPTU Kaiserslautern-Landau
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,18 +28,22 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# Authors:
-#   Derek Christ
-#   Thomas Psota
+# Authors: 
+#    Matthias Jung
+#    Lukas Steiner
+#    Derek Christ
+#    Thomas Psota
 
 ########################################
-###      DRAMSys::libdramsys         ###
+###      DRAMSys::simulator          ###
 ########################################
 
-project(DRAMSys_libdramsys)
+project(DRAMSys_Simulator)
 
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS *.cpp)
 file(GLOB_RECURSE HEADER_FILES CONFIGURE_DEPENDS *.h;*.hpp)
+
+list(FILTER SOURCE_FILES EXCLUDE REGEX "main.cpp")
 
 add_library(${PROJECT_NAME} STATIC ${SOURCE_FILES} ${HEADER_FILES})
 
@@ -47,17 +51,17 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
-        SystemC::systemc
-        DRAMSys::util
-        DRAMSys::config
-        sqlite3::sqlite3
+        Threads::Threads
+        DRAMSys::libdramsys
 )
 
-if (DRAMSYS_WITH_DRAMPOWER)
-    target_link_libraries(${PROJECT_NAME} PRIVATE DRAMPower)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE DRAMPOWER)
-endif ()
+add_executable(DRAMSys
+    main.cpp
+)
 
-add_library(DRAMSys::libdramsys ALIAS ${PROJECT_NAME})
+target_link_libraries(DRAMSys
+    PRIVATE
+        DRAMSys_Simulator
+)
 
 build_source_group()

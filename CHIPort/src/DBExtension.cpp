@@ -117,7 +117,7 @@ uint8_t DBIntfExtension::getQoS(const tlm::tlm_generic_payload& trans)
     return trans.get_extension<DBIntfExtension>()->qos;
 }
 
-sc_core::sc_time DBIntfExtension::getTimeOfGeneration(const tlm::tlm_generic_payload& trans)
+sc_time DBIntfExtension::getTimeOfGeneration(const tlm::tlm_generic_payload& trans)
 {
     return trans.get_extension<DBIntfExtension>()->timeOfGeneration;
 }

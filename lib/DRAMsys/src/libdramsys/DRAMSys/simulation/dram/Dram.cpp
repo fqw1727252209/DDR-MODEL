@@ -50,10 +50,6 @@
 #include <cstdint>
 #include <cstdlib>
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -103,8 +99,7 @@ Dram::Dram(const sc_module_name& name, const Configuration& config) :
 #endif
         }
     }
-    read_hex();
-    read_os();
+
     tSocket.register_nb_transport_fw(this, &Dram::nb_transport_fw);
     tSocket.register_b_transport(this, &Dram::b_transport);
     tSocket.register_transport_dbg(this, &Dram::transport_dbg);
@@ -114,96 +109,6 @@ Dram::~Dram()
 {
     if (useMalloc)
         free(memory);
-}
-
-unsigned char
-Dram::hexCharToByte(char c)
-{
-    if (c >= '0' && c <= '9')
-        return c - '0';
-    if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
-    if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
-    throw std::invalid_argument("hexCharToByte: invalid character");
-}
-unsigned char
-Dram::hexStrToByte(const std::string& hex_str)
-{
-    unsigned char byte = 0;
-    for(size_t i=0;i<hex_str.length();++i)
-    {
-        byte = (byte << 4) | hexCharToByte(hex_str[i]);
-    }
-    return byte;
-}
-
-void 
-Dram::read_hex()
-{
-#ifdef START_FROM_DDR
-    std::cout<<"Enter CHI DDR ADDR Read Hex"<<std::endl;
-    const char* hex_filename = HEX_FILE_NAME;
-    std::ifstream file(hex_filename, std::ios::in);
-    if (!file.is_open())
-    {
-        std::cout << "Unable to open file: " << hex_filename << std::endl;
-        return;
-    }
-    std::string line;
-    sc_dt::uint64 hex_addr;
-    hex_addr = UBOOT_HEX_ADDR-DDR_BASE_ADDR;
-    while (std::getline(file, line))
-    {
-        if(line.empty()) continue;
-        size_t line_length = line.length();
-        if(line.length() >=2)
-        {
-            for(int i=line_length-2;i>=0;i-=2)
-            {
-                std::string hex_pair = line.substr(i, 2);
-                memory[hex_addr++] = hexStrToByte(hex_pair);
-            }
-        }
-    }
-    std::cout<<"hex final addr=0x"<<std::hex<<hex_addr<<std::dec<<std::endl;
-    std::cout<<"test_ddr.hex file read over!"<<std::endl;
-    file.close();
-#endif
-}
-
-void 
-Dram::read_os()
-{
-#ifdef START_OS
-    std::cout<<"##### start to read_os hex"<<std::endl;
-    const char* hex_filename = HEX_FILE_NAME;
-    std::ifstream file(hex_filename, std::ios::in);
-    if (!file.is_open())
-    {
-        std::cout << "Unable to open file: " << hex_filename << std::endl;
-        return;
-    }
-    std::string line;
-    sc_dt::uint64 hex_addr;
-    hex_addr = OS_HEX_ADDR-DDR_BASE_ADDR;
-    while (std::getline(file, line))
-    {
-        if(line.empty()) continue;
-        size_t line_length = line.length();
-        if(line_length >=2)
-        {
-            for(int i=line_length-2;i>=0;i-=2)
-            {
-                std::string hex_pair = line.substr(i, 2);
-                memory[hex_addr++] = hexStrToByte(hex_pair);
-            }
-        }
-    }
-    std::cout<<"os final addr=0x"<<std::hex<<hex_addr<<std::dec<<std::endl;
-    std::cout<<"test_os.hex file read over!"<<std::endl;
-    file.close();
-#endif
 }
 
 void Dram::reportPower()

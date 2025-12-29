@@ -8,13 +8,13 @@ file(GLOB_RECURSE AXI_SOURCE_FILES CONFIGURE_DEPENDS src/libarmaxi4.cpp)
 # add_library(amba_tlm_axi4 STATIC ${AXI_SOURCE_FILES})
 # target_include_directories(amba_tlm_axi4 
 #   PUBLIC 
-#       ${PROJECT_SOURCE_DIR}/include>
+#       ${PROJECT_SOURCE_DIR}/include
 # )
 # axi4 dynamic library#
 # add_library(amba_tlm_axi4_shared SHARED ${AXI_SOURCE_FILES})
 # target_include_directories(amba_tlm_axi4_shared
 #   PUBLIC 
-#       ${PROJECT_SOURCE_DIR}/include>
+#       ${PROJECT_SOURCE_DIR}/include
 # )
 # set_target_properties(amba_tlm_axi4_shared PROPERTIES
 #     POSITION_INDEPENDENT_CODE ON
@@ -28,14 +28,12 @@ target_include_directories(amba_tlm_chi
 )
 target_link_libraries(amba_tlm_chi
   PUBLIC
-      SystemC::SystemC
-)
+      SystemC::systemc)
 # chi dynamic library#
 add_library(amba_tlm_chi_shared SHARED ${CHI_SOURCE_FILES})
 target_link_libraries(amba_tlm_chi_shared
   PUBLIC
-      SystemC::SystemC
-)
+      SystemC::systemc)
 target_include_directories(amba_tlm_chi_shared
   PUBLIC 
       ${PROJECT_SOURCE_DIR}/include

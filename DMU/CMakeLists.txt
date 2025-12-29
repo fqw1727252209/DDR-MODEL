@@ -20,7 +20,7 @@ add_executable(dmutest main.cc)
 target_link_libraries(dmutest
     PRIVATE
         DMU
-        SystemC::systemc
+
         # asan
 )
 target_include_directories(dmutest

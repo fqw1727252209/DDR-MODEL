@@ -70,11 +70,6 @@ protected:
     unsigned char* memory;
     const uint64_t channelSize;
     const bool useMalloc;
-    //read hex file
-    unsigned char hexCharToByte(char c);
-    unsigned char hexStrToByte(const std::string& hex_str);
-    void read_hex();
-    void read_os();
 
 #ifdef DRAMPOWER
     std::unique_ptr<libDRAMPower> DRAMPower;

@@ -404,7 +404,7 @@ int sc_main(int argc, char** argv)
     TrafficPatternGenerator pattern_gen(42); // seed for reproducibility
     pattern_gen.generate(tg, selected_pattern, num_requests, true);
     
-    sc_core::sc_start(10, sc_core::SC_US);
+    sc_core::sc_start(200, sc_core::SC_US);
     // sc_core::sc_pause();
     // // tg.add_payload(ARM::CHI::REQ_OPCODE_READ_NO_SNP, 0x00001000, ARM::CHI::SIZE_32);
     // // tg.add_payload(ARM::CHI::REQ_OPCODE_READ_NO_SNP, 0x40001000, ARM::CHI::SIZE_32);
