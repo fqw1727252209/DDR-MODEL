@@ -55,6 +55,7 @@
 #include "DRAMSys/controller/refresh/RefreshManagerPer2Bank.h"
 #include "DRAMSys/controller/refresh/RefreshManagerPerBank.h"
 #include "DRAMSys/controller/refresh/RefreshManagerSameBank.h"
+#include "DRAMSys/controller/refresh/RefreshManagerSmartHybrid.h"
 #include "DRAMSys/controller/respqueue/RespQueueFifo.h"
 #include "DRAMSys/controller/respqueue/RespQueueReorder.h"
 #include "DRAMSys/controller/scheduler/SchedulerFifo.h"
@@ -267,6 +268,19 @@ Controller::Controller(const sc_module_name& name,
                                                          bankMachinesOnRank[Rank(rankID)],
                                                          *powerDownManagers[Rank(rankID)],
                                                          Rank(rankID)));
+        }
+    }
+    else if (config.refreshPolicy == Configuration::RefreshPolicy::SmartHybrid)
+    {
+        for (unsigned rankID = 0; rankID < memSpec.ranksPerChannel; rankID++)
+        {
+            // SmartHybrid: 混合策略刷新管理器
+            // 低负载使用REFPB，高负载切换到REFAB
+            refreshManagers.push_back(
+                std::make_unique<RefreshManagerSmartHybrid>(config,
+                                                            bankMachinesOnRank[Rank(rankID)],
+                                                            *powerDownManagers[Rank(rankID)],
+                                                            Rank(rankID)));
         }
     }
     else

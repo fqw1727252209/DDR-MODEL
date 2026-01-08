@@ -220,9 +220,8 @@ void
 RetryResourceManager::cnt_dec(unsigned type, unsigned qos, unsigned src_id)//when P-credit granted, counter dec
 {
     assert(type < 3 && qos < 4 && src_id < 11);
-    assert(qos_srcid_matrixs.at(type).at(qos).at(src_id) >= 0);
+    assert(qos_srcid_matrixs.at(type).at(qos).at(src_id) > 0);  // 确保计数器大于0，防止无符号整数下溢
     --qos_srcid_matrixs.at(type).at(qos).at(src_id);
-    assert(qos_srcid_matrixs.at(type).at(qos).at(src_id) < 128 );
     #ifdef CHIPort_TEST
     for(auto& matrix: qos_srcid_matrixs)
     {

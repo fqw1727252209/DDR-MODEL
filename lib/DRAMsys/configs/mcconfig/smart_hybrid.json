@@ -6,7 +6,7 @@
         "RequestBufferSize": 8,
         "CmdMux": "Oldest",
         "RespQueue": "Fifo",
-        "RefreshPolicy": "AllBank",
+        "RefreshPolicy": "SmartHybrid",
         "RefreshMaxPostponed": 8,
         "RefreshMaxPulledin": 0,
         "PowerDownPolicy": "NoPowerDown",

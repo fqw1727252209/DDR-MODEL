@@ -233,6 +233,8 @@ void Configuration::loadMCConfig(const DRAMSys::Config::McConfig& mcConfig)
                 return RefreshPolicy::Per2Bank;
             case DRAMSys::Config::RefreshPolicyType::SameBank:
                 return RefreshPolicy::SameBank;
+            case DRAMSys::Config::RefreshPolicyType::SmartHybrid:
+                return RefreshPolicy::SmartHybrid;
             default:
                 SC_REPORT_FATAL("Configuration", "Invalid RefreshPolicy");
                 return RefreshPolicy::NoRefresh; // Silence Warning

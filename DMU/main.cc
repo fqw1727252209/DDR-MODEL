@@ -11,10 +11,13 @@
 #include "DMU/DramMannageUnit.h"
 
 #include <DRAMSys/config/DRAMSysConfiguration.h>
+#include <DRAMSys/configuration/memspec/MemSpec.h>
 
 #include <filesystem>
 
 #include <random>
+#include <cmath>
+#include <DRAMSys/simulation/AddressDecoder.h>
 
 //============================================================================
 // 流量模式枚举
@@ -45,45 +48,117 @@ const char* get_pattern_name(TrafficPattern p)
 }
 
 //============================================================================
-// DDR4地址映射常量 (based on am_ddr4_8x4Gbx8_dimm_p1KB_brc.json)
-// BRC映射: Bank[31:28] - Row[27:13] - Column[12:3] - Byte[2:0]
+// 动态地址映射参数 (从DRAMSys配置自动获取)
+// 支持DDR4、LPDDR4等不同内存类型
 //============================================================================
-constexpr uint64_t TG_BASE_ADDR      = 0x00000000;
-constexpr unsigned TG_BYTE_BITS      = 3;   // bits 0-2
-constexpr unsigned TG_COLUMN_BITS    = 10;  // bits 3-12
-constexpr unsigned TG_ROW_BITS       = 15;  // bits 13-27
-constexpr unsigned TG_BANK_BITS      = 2;   // bits 28-29 (bank within group)
-constexpr unsigned TG_BANK_GROUP_BITS = 2;  // bits 30-31
-
-constexpr uint64_t TG_COLUMN_OFFSET     = TG_BYTE_BITS;                              // 3
-constexpr uint64_t TG_ROW_OFFSET        = TG_COLUMN_OFFSET + TG_COLUMN_BITS;         // 13
-constexpr uint64_t TG_BANK_OFFSET       = TG_ROW_OFFSET + TG_ROW_BITS;               // 28
-constexpr uint64_t TG_BANK_GROUP_OFFSET = TG_BANK_OFFSET + TG_BANK_BITS;             // 30
-
-constexpr uint64_t TG_PAGE_SIZE      = 1ULL << (TG_COLUMN_OFFSET + TG_COLUMN_BITS);  // 8KB (2^13)
-constexpr uint64_t TG_ROW_SIZE       = TG_PAGE_SIZE;                                 // Same as page
-constexpr uint64_t TG_BANK_SIZE      = 1ULL << (TG_ROW_OFFSET + TG_ROW_BITS);        // 256MB per bank
-
-//============================================================================
-// 地址生成辅助函数
-//============================================================================
-uint64_t make_address(unsigned bank_group, unsigned bank, unsigned row, unsigned column, unsigned byte_offset = 0)
+struct AddressMappingParams
 {
-    return TG_BASE_ADDR
-         | (static_cast<uint64_t>(bank_group & 0x3) << TG_BANK_GROUP_OFFSET)
-         | (static_cast<uint64_t>(bank & 0x3) << TG_BANK_OFFSET)
-         | (static_cast<uint64_t>(row & 0x7FFF) << TG_ROW_OFFSET)
-         | (static_cast<uint64_t>(column & 0x3FF) << TG_COLUMN_OFFSET)
-         | (byte_offset & 0x7);
+    uint64_t baseAddr = 0;
+    unsigned byteBits = 0;
+    unsigned columnBits = 0;
+    unsigned rowBits = 0;
+    unsigned bankBits = 0;
+    unsigned bankGroupBits = 0;
+    unsigned rankBits = 0;
+    
+    // 计算得出的偏移量和大小
+    uint64_t pageSize = 0;      // 一个Row的大小
+    uint64_t bankSize = 0;      // 一个Bank的大小
+    unsigned numBanks = 0;
+    unsigned numBankGroups = 0;
+    unsigned numRows = 0;
+    unsigned numColumns = 0;
+    
+    // 用于地址生成的掩码
+    unsigned rowMask = 0;
+    unsigned columnMask = 0;
+    unsigned bankMask = 0;
+    unsigned bankGroupMask = 0;
+    
+    // 从MemSpec初始化
+    void initFromMemSpec(const DRAMSys::MemSpec& memSpec)
+    {
+        // 从memSpec获取位宽信息
+        numBanks = memSpec.banksPerGroup;
+        numBankGroups = memSpec.groupsPerRank;
+        numRows = memSpec.rowsPerBank;
+        numColumns = memSpec.columnsPerRow;
+        
+        // 计算各字段的位数
+        byteBits = static_cast<unsigned>(std::log2(memSpec.bytesPerBeat));
+        columnBits = static_cast<unsigned>(std::log2(numColumns));
+        rowBits = static_cast<unsigned>(std::log2(numRows));
+        bankBits = static_cast<unsigned>(std::log2(numBanks));
+        bankGroupBits = static_cast<unsigned>(std::log2(numBankGroups));
+        
+        // 计算大小
+        pageSize = static_cast<uint64_t>(memSpec.bytesPerBeat) * numColumns;
+        bankSize = pageSize * numRows;
+        
+        // 计算掩码
+        rowMask = (1U << rowBits) - 1;
+        columnMask = (1U << columnBits) - 1;
+        bankMask = (1U << bankBits) - 1;
+        bankGroupMask = (1U << bankGroupBits) - 1;
+    }
+    
+    void print() const
+    {
+        std::cout << "\n========== Address Mapping Parameters ==========" << std::endl;
+        std::cout << "  Byte bits:       " << byteBits << std::endl;
+        std::cout << "  Column bits:     " << columnBits << " (columns: " << numColumns << ")" << std::endl;
+        std::cout << "  Row bits:        " << rowBits << " (rows: " << numRows << ")" << std::endl;
+        std::cout << "  Bank bits:       " << bankBits << " (banks/group: " << numBanks << ")" << std::endl;
+        std::cout << "  BankGroup bits:  " << bankGroupBits << " (groups: " << numBankGroups << ")" << std::endl;
+        std::cout << "  Page size:       " << pageSize << " bytes (" << (pageSize / 1024) << " KB)" << std::endl;
+        std::cout << "  Bank size:       " << bankSize << " bytes (" << (bankSize / (1024*1024)) << " MB)" << std::endl;
+        std::cout << "================================================\n" << std::endl;
+    }
+};
+
+// 全局地址映射参数（在sc_main中初始化）
+static AddressMappingParams g_addrParams;
+
+//============================================================================
+// 地址生成辅助函数 - 使用AddressDecoder的encodeAddress
+//============================================================================
+uint64_t make_address(const DRAMSys::AddressDecoder& decoder,
+                      unsigned bank_group, unsigned bank, unsigned row, unsigned column, unsigned byte_offset = 0)
+{
+    DRAMSys::DecodedAddress decoded;
+    decoded.channel = 0;
+    decoded.rank = 0;
+    decoded.bankgroup = bank_group;
+    decoded.bank = bank;
+    decoded.row = row;
+    decoded.column = column;
+    decoded.byte = byte_offset;
+    
+    return decoder.encodeAddress(decoded);
+}
+
+// 兼容旧接口的简化版本（使用全局参数，BRC顺序）
+uint64_t make_address_simple(unsigned bank_group, unsigned bank, unsigned row, unsigned column, unsigned byte_offset = 0)
+{
+    // 使用BRC映射顺序: Byte - Column - Row - Bank - BankGroup
+    uint64_t addr = byte_offset & ((1ULL << g_addrParams.byteBits) - 1);
+    addr |= static_cast<uint64_t>(column & g_addrParams.columnMask) << g_addrParams.byteBits;
+    addr |= static_cast<uint64_t>(row & g_addrParams.rowMask) << (g_addrParams.byteBits + g_addrParams.columnBits);
+    addr |= static_cast<uint64_t>(bank & g_addrParams.bankMask) << (g_addrParams.byteBits + g_addrParams.columnBits + g_addrParams.rowBits);
+    addr |= static_cast<uint64_t>(bank_group & g_addrParams.bankGroupMask) << (g_addrParams.byteBits + g_addrParams.columnBits + g_addrParams.rowBits + g_addrParams.bankBits);
+    return addr;
 }
 
 //============================================================================
-// 流量生成器类
+// 流量生成器类 - 使用动态地址映射参数
 //============================================================================
 class TrafficPatternGenerator
 {
 public:
-    TrafficPatternGenerator(unsigned seed = 42) : rng(seed) {}
+    TrafficPatternGenerator(unsigned seed = 42) : rng(seed), decoder(nullptr) {}
+    
+    // 设置AddressDecoder用于精确地址编码
+    void setAddressDecoder(const DRAMSys::AddressDecoder* dec) { decoder = dec; }
     
     void generate(CHITrafficGenerator& tg, TrafficPattern pattern, 
                   unsigned num_requests, bool read_only = true)
@@ -119,6 +194,7 @@ public:
 private:
     std::mt19937_64 rng;
     TrafficPattern current_pattern;
+    const DRAMSys::AddressDecoder* decoder;
     
     const char* pattern_name(TrafficPattern p)
     {
@@ -129,6 +205,16 @@ private:
     {
         return is_read ? ARM::CHI::REQ_OPCODE_READ_NO_SNP 
                        : ARM::CHI::REQ_OPCODE_WRITE_NO_SNP_PTL;
+    }
+    
+    // 使用AddressDecoder生成地址（如果可用）
+    uint64_t encode_address(unsigned bank_group, unsigned bank, unsigned row, unsigned column, unsigned byte = 0)
+    {
+        if (decoder)
+        {
+            return make_address(*decoder, bank_group, bank, row, column, byte);
+        }
+        return make_address_simple(bank_group, bank, row, column, byte);
     }
     
     // Pattern 1: 连续地址访问 - Row Buffer命中率高
@@ -149,14 +235,16 @@ private:
     // Pattern 2: 随机地址访问 - Row Buffer命中率低
     void generate_random(CHITrafficGenerator& tg, unsigned num_requests, bool read_only)
     {
-        std::uniform_int_distribution<uint64_t> addr_dist(0, TG_BANK_SIZE * 16 - 1);
+        uint64_t max_addr = g_addrParams.bankSize * g_addrParams.numBanks * g_addrParams.numBankGroups;
+        std::uniform_int_distribution<uint64_t> addr_dist(0, max_addr - 1);
         
         for (unsigned i = 0; i < num_requests; ++i)
         {
             uint64_t addr = (addr_dist(rng) >> 6) << 6; // align to 64 bytes
             tg.add_payload(get_opcode(read_only), addr, ARM::CHI::SIZE_64);
         }
-        std::cout << "  Random addresses across entire memory space" << std::endl;
+        std::cout << "  Random addresses across entire memory space (max: 0x" 
+                  << std::hex << max_addr << std::dec << ")" << std::endl;
     }
     
     // Pattern 3: 同Bank不同Row - 频繁触发Row切换
@@ -167,39 +255,37 @@ private:
         
         for (unsigned i = 0; i < num_requests; ++i)
         {
-            unsigned row = i % (1 << TG_ROW_BITS);
+            unsigned row = i % g_addrParams.numRows;
             unsigned col = 0;
-            uint64_t addr = make_address(target_bank_group, target_bank, row, col);
+            uint64_t addr = encode_address(target_bank_group, target_bank, row, col);
             tg.add_payload(get_opcode(read_only), addr, ARM::CHI::SIZE_64);
         }
         std::cout << "  Fixed Bank: " << target_bank 
                   << ", BankGroup: " << target_bank_group
-                  << ", Rotating Rows" << std::endl;
+                  << ", Rotating Rows (max: " << g_addrParams.numRows << ")" << std::endl;
     }
     
     // Pattern 4: 不同Bank同Row - 利用Bank并行性
     void generate_diff_bank_same_row(CHITrafficGenerator& tg, unsigned num_requests, bool read_only)
     {
         const unsigned target_row = 100;
-        const unsigned num_banks = 4;
-        const unsigned num_bank_groups = 4;
         
         for (unsigned i = 0; i < num_requests; ++i)
         {
-            unsigned bank = i % num_banks;
-            unsigned bank_group = (i / num_banks) % num_bank_groups;
-            unsigned col = (i / (num_banks * num_bank_groups)) % (1 << TG_COLUMN_BITS);
-            uint64_t addr = make_address(bank_group, bank, target_row, col);
+            unsigned bank = i % g_addrParams.numBanks;
+            unsigned bank_group = (i / g_addrParams.numBanks) % g_addrParams.numBankGroups;
+            unsigned col = (i / (g_addrParams.numBanks * g_addrParams.numBankGroups)) % g_addrParams.numColumns;
+            uint64_t addr = encode_address(bank_group, bank, target_row, col);
             tg.add_payload(get_opcode(read_only), addr, ARM::CHI::SIZE_64);
         }
         std::cout << "  Fixed Row: " << target_row 
-                  << ", Rotating across " << (num_banks * num_bank_groups) << " banks" << std::endl;
+                  << ", Rotating across " << (g_addrParams.numBanks * g_addrParams.numBankGroups) << " banks" << std::endl;
     }
     
     // Pattern 5: 固定步长访问
     void generate_strided(CHITrafficGenerator& tg, unsigned num_requests, bool read_only)
     {
-        const uint64_t stride = TG_PAGE_SIZE; // 每次跳过一个Page（触发Row切换）
+        const uint64_t stride = g_addrParams.pageSize; // 每次跳过一个Page（触发Row切换）
         uint64_t addr = 0;
         
         for (unsigned i = 0; i < num_requests; ++i)
@@ -215,7 +301,8 @@ private:
     void generate_mixed_rw(CHITrafficGenerator& tg, unsigned num_requests)
     {
         std::uniform_int_distribution<unsigned> rw_dist(0, 1);
-        std::uniform_int_distribution<uint64_t> addr_dist(0, TG_BANK_SIZE * 4 - 1);
+        uint64_t max_addr = g_addrParams.bankSize * g_addrParams.numBanks * g_addrParams.numBankGroups / 4;
+        std::uniform_int_distribution<uint64_t> addr_dist(0, max_addr - 1);
         
         unsigned read_count = 0, write_count = 0;
         
@@ -308,7 +395,7 @@ int sc_main(int argc, char** argv)
     // 解析命令行参数选择流量模式
     //========================================================================
     TrafficPattern selected_pattern = TrafficPattern::SEQUENTIAL;
-    const unsigned num_requests = 60;
+    const unsigned num_requests = 20000;
     
     // 第一个参数可以是pattern类型
     if (argc >= 2)
@@ -359,7 +446,7 @@ int sc_main(int argc, char** argv)
 
     /* Configure the configure file directory and bus width */
     std::filesystem::path resourceDirectory = DRAMSYS_RESOURCE_DIR;
-    std::filesystem::path baseConfig = resourceDirectory / "ddr4-example.json";
+    std::filesystem::path baseConfig = resourceDirectory / "lpddr4-example.json";
     
     // 解析命令行参数：第一个可以是Pattern，第二个可以是配置文件，第三个可以是资源目录
     int config_arg_offset = 1; // 配置文件参数的位置
@@ -390,6 +477,15 @@ int sc_main(int argc, char** argv)
 
 
     dmu::DramMannageUnit dmu(std::move(configuration), std::move(resourceDirectory), data_width_bits);
+    
+    // 从DRAMSys获取MemSpec并初始化地址映射参数
+    const auto& memSpec = *dmu.dramSys->getConfig().memSpec;
+    g_addrParams.initFromMemSpec(memSpec);
+    g_addrParams.print();
+    
+    // 获取AddressDecoder用于精确地址编码
+    const auto& addressDecoder = dmu.dramSys->getAddressDecoder();
+    
     sc_core::sc_clock clk("clk", 2, sc_core::SC_NS, 0.5);
     CHITrafficGenerator tg("tg", data_width_bits);
     CHIMonitor mon("mon", data_width_bits);
@@ -402,6 +498,7 @@ int sc_main(int argc, char** argv)
 
     // 生成流量
     TrafficPatternGenerator pattern_gen(42); // seed for reproducibility
+    pattern_gen.setAddressDecoder(&addressDecoder);  // 使用精确的地址编码
     pattern_gen.generate(tg, selected_pattern, num_requests, true);
     
     sc_core::sc_start(200, sc_core::SC_US);

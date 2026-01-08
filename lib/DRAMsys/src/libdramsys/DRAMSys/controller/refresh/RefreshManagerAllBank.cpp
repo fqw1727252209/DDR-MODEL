@@ -110,7 +110,11 @@ void RefreshManagerAllBank::evaluate()
                 if (activatedBanks > 0)
                     nextCommand = Command::PREAB;
                 else
+                {
                     nextCommand = Command::REFAB;
+                    std::cout << "[REFRESH] REFAB at " << sc_time_stamp() 
+                              << " (next trigger: " << timeForNextTrigger << ")" << std::endl;
+                }
 
                 return;
             }
@@ -133,6 +137,8 @@ void RefreshManagerAllBank::evaluate()
             {
                 assert(activatedBanks == 0);
                 nextCommand = Command::REFAB;
+                std::cout << "[REFRESH] REFAB (Pulledin) at " << sc_time_stamp() 
+                          << " (next trigger: " << timeForNextTrigger << ")" << std::endl;
                 return;
             }
         }

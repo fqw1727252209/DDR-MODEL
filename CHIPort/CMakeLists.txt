@@ -16,7 +16,7 @@ target_link_libraries(CHIPort
         SystemC::systemc
         amba_tlm_chi
 )
-target_include_directories(CHIPort
+target_include_directories(CHIPort 
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )

@@ -102,7 +102,8 @@ public:
         PerBank,
         Per2Bank,
         SameBank,
-        AllBank
+        AllBank,
+        SmartHybrid  // 混合策略：低负载用REFPB，高负载切换到REFAB
     } refreshPolicy = RefreshPolicy::AllBank;
     unsigned int refreshMaxPostponed = 0;
     unsigned int refreshMaxPulledin = 0;

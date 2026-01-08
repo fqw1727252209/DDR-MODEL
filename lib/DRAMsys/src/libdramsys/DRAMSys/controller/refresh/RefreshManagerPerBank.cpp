@@ -120,6 +120,9 @@ void RefreshManagerPerBank::evaluate()
             else
             {
                 nextCommand = Command::REFPB;
+                std::cout << "[REFRESH] REFPB (Regular) Bank " << static_cast<std::size_t>((*currentIterator)->getBank())
+                          << " at " << sc_time_stamp() 
+                          << " (next trigger: " << timeForNextTrigger << ")" << std::endl;
 
                 if (forcedRefresh)
                 {
@@ -153,7 +156,12 @@ void RefreshManagerPerBank::evaluate()
         if ((*currentIterator)->isActivated())
             nextCommand = Command::PREPB;
         else
+        {
             nextCommand = Command::REFPB;
+            std::cout << "[REFRESH] REFPB (Pulledin) Bank " << static_cast<std::size_t>((*currentIterator)->getBank())
+                      << " at " << sc_time_stamp() 
+                      << " (next trigger: " << timeForNextTrigger << ")" << std::endl;
+        }
 
         return;
     }

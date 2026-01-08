@@ -126,6 +126,7 @@ enum class RefreshPolicyType
     PerBank,
     Per2Bank,
     SameBank,
+    SmartHybrid,
     Invalid = -1
 };
 
@@ -136,6 +137,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(RefreshPolicyType,
                               {RefreshPolicyType::PerBank, "PerBank"},
                               {RefreshPolicyType::Per2Bank, "Per2Bank"},
                               {RefreshPolicyType::SameBank, "SameBank"},
+                              {RefreshPolicyType::SmartHybrid, "SmartHybrid"},
 
                               // Alternative conversions to provide backwards-compatibility
                               // when deserializing. Will not be used for serializing.
