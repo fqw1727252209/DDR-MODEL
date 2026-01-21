@@ -82,6 +82,11 @@ public:
     const double fCKMHz;
     const sc_core::sc_time tCK;
 
+    // Get controller clock period (may differ from DRAM tCK due to frequency ratio)
+    // Default implementation returns tCK (1:1 ratio)
+    // LPDDR5 overrides this to support 1:2 and 1:4 ratios
+    [[nodiscard]] virtual sc_core::sc_time getControllerClockPeriod() const { return tCK; }
+
     const std::string memoryId;
     const enum class MemoryType {
         DDR3,

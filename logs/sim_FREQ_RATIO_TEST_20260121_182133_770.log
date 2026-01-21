@@ -1,0 +1,303 @@
+========================================
+Log file: "/home/feng/DDR-MODEL/logs/sim_FREQ_RATIO_TEST_20260121_182133_770.log"
+Timestamp: 20260121_182133_770
+Pattern: FREQ_RATIO_TEST
+Requests: 20000
+========================================
+this is DRAMsys test
+
+[38;5;232m■ ■ [0m[38;5;22m■  [0m[1;37mDRAMSys5.0, Copyright (c) 2023[0m
+[38;5;232m■ [0m[38;5;22m■ [0m[38;5;28m■  [0mRPTU Kaiserslautern-Landau,
+[38;5;22m■ [0m[38;5;28m■ [0m[38;5;82m■  [0mFraunhofer IESE
+
+===========================================================================
+Memory Configuration:
+
+ Memory type:           LPDDR5
+ Memory size in bytes:  2147483648
+ Channels:              1
+ Ranks per channel:     1
+ Banks per rank:        16
+ Bank groups per rank:  8
+ Banks per bank group:  2
+ Bank group mode:       16 Bank
+ WCK/CK ratio:          4:1
+ Rows per bank:         65536
+ Columns per row:       1024
+ Device width in bits:  16
+ Device size in bits:   17179869184
+ Device size in bytes:  2147483648
+ Devices per rank:      1
+ Default burst length:  16
+
+===========================================================================
+Used Address Mapping:
+
+ Bg  2: 0000000000000000000000000000000000100000000000000000000000000000
+ Bg  1: 0000000000000000000000000000000000010000000000000000000000000000
+ Bg  0: 0000000000000000000000000000000000001000000000000000000000000000
+ Ba  0: 0000000000000000000000000000000001000000000000000000000000000000
+ Ro 15: 0000000000000000000000000000000000000100000000000000000000000000
+ Ro 14: 0000000000000000000000000000000000000010000000000000000000000000
+ Ro 13: 0000000000000000000000000000000000000001000000000000000000000000
+ Ro 12: 0000000000000000000000000000000000000000100000000000000000000000
+ Ro 11: 0000000000000000000000000000000000000000010000000000000000000000
+ Ro 10: 0000000000000000000000000000000000000000001000000000000000000000
+ Ro  9: 0000000000000000000000000000000000000000000100000000000000000000
+ Ro  8: 0000000000000000000000000000000000000000000010000000000000000000
+ Ro  7: 0000000000000000000000000000000000000000000001000000000000000000
+ Ro  6: 0000000000000000000000000000000000000000000000100000000000000000
+ Ro  5: 0000000000000000000000000000000000000000000000010000000000000000
+ Ro  4: 0000000000000000000000000000000000000000000000001000000000000000
+ Ro  3: 0000000000000000000000000000000000000000000000000100000000000000
+ Ro  2: 0000000000000000000000000000000000000000000000000010000000000000
+ Ro  1: 0000000000000000000000000000000000000000000000000001000000000000
+ Ro  0: 0000000000000000000000000000000000000000000000000000100000000000
+ Co  9: 0000000000000000000000000000000000000000000000000000010000000000
+ Co  8: 0000000000000000000000000000000000000000000000000000001000000000
+ Co  7: 0000000000000000000000000000000000000000000000000000000100000000
+ Co  6: 0000000000000000000000000000000000000000000000000000000010000000
+ Co  5: 0000000000000000000000000000000000000000000000000000000001000000
+ Co  4: 0000000000000000000000000000000000000000000000000000000000100000
+ Co  3: 0000000000000000000000000000000000000000000000000000000000010000
+ Co  2: 0000000000000000000000000000000000000000000000000000000000001000
+ Co  1: 0000000000000000000000000000000000000000000000000000000000000100
+ Co  0: 0000000000000000000000000000000000000000000000000000000000000010
+ By  0: 0000000000000000000000000000000000000000000000000000000000000001
+
+===========================================================================
+
+========== Address Mapping Parameters ==========
+  Byte bits:       1
+  Column bits:     10 (columns: 1024)
+  Row bits:        16 (rows: 65536)
+  Bank bits:       1 (banks/group: 2)
+  BankGroup bits:  3 (groups: 8)
+  Page size:       2048 bytes (2 KB)
+  Bank size:       134217728 bytes (128 MB)
+================================================
+
+
+========================================
+运行 LPDDR5 频率比测试
+测试 1:1, 1:2, 1:4 频率比配置
+========================================
+
+
+测试配置: "lib/DRAMsys/configs/lpddr5-1to4-example.json"
+
+========== LPDDR5 时序参数 ==========
+tCK:      625 ps
+tRCD:     11250 ps
+tRAS:     26250 ps
+tRPpb:    11250 ps
+tRPab:    13125 ps
+tRC:      37500 ps
+tRRD:     5 ns
+tCCD:     5 ns
+tCCD_L:   5 ns
+tCCD_S:   2500 ps
+tWTR:     7500 ps
+tWTR_L:   7500 ps
+tWTR_S:   3750 ps
+tRTP:     5 ns
+tWR:      11250 ps
+tRFCab:   175 ns
+tRFCpb:   87500 ps
+tPBR2PBR: 56250 ps
+tFAW:     20 ns
+Bank Group Mode: 16 Bank
+====================================
+
+
+======================================================================
+LPDDR5 AC Timing Checker 测试开始
+Bank Group Mode: 16 Bank
+======================================================================
+
+--- Property-Based Tests ---
+
+[Property 1] ACT命令时序约束正确性 (100 iterations)
+1 ns mon : Req   <---- link-credit
+1 ns mon : Dat   <---- link-credit
+1 ns mon : Rsp ---->   link-credit
+1 ns mon : Dat ---->   link-credit
+3 ns mon : Req   <---- link-credit
+3 ns mon : Dat   <---- link-credit
+3 ns mon : Rsp ---->   link-credit
+3 ns mon : Dat ---->   link-credit
+5 ns mon : Req   <---- link-credit
+5 ns mon : Dat   <---- link-credit
+5 ns mon : Rsp ---->   link-credit
+5 ns mon : Dat ---->   link-credit
+7 ns mon : Req   <---- link-credit
+7 ns mon : Dat   <---- link-credit
+7 ns mon : Rsp ---->   link-credit
+7 ns mon : Dat ---->   link-credit
+9 ns mon : Req   <---- link-credit
+9 ns mon : Dat   <---- link-credit
+9 ns mon : Rsp ---->   link-credit
+9 ns mon : Dat ---->   link-credit
+11 ns mon : Req   <---- link-credit
+11 ns mon : Dat   <---- link-credit
+11 ns mon : Rsp ---->   link-credit
+11 ns mon : Dat ---->   link-credit
+13 ns mon : Req   <---- link-credit
+13 ns mon : Dat   <---- link-credit
+13 ns mon : Rsp ---->   link-credit
+13 ns mon : Dat ---->   link-credit
+15 ns mon : Req   <---- link-credit
+15 ns mon : Dat   <---- link-credit
+15 ns mon : Rsp ---->   link-credit
+15 ns mon : Dat ---->   link-credit
+17 ns mon : Req   <---- link-credit
+17 ns mon : Dat   <---- link-credit
+17 ns mon : Rsp ---->   link-credit
+17 ns mon : Dat ---->   link-credit
+19 ns mon : Req   <---- link-credit
+19 ns mon : Dat   <---- link-credit
+19 ns mon : Rsp ---->   link-credit
+19 ns mon : Dat ---->   link-credit
+21 ns mon : Req   <---- link-credit
+21 ns mon : Dat   <---- link-credit
+21 ns mon : Rsp ---->   link-credit
+21 ns mon : Dat ---->   link-credit
+23 ns mon : Req   <---- link-credit
+23 ns mon : Dat   <---- link-credit
+23 ns mon : Rsp ---->   link-credit
+23 ns mon : Dat ---->   link-credit
+25 ns mon : Req   <---- link-credit
+25 ns mon : Dat   <---- link-credit
+25 ns mon : Rsp ---->   link-credit
+25 ns mon : Dat ---->   link-credit
+27 ns mon : Req   <---- link-credit
+27 ns mon : Dat   <---- link-credit
+27 ns mon : Rsp ---->   link-credit
+27 ns mon : Dat ---->   link-credit
+29 ns mon : Req   <---- link-credit
+29 ns mon : Dat   <---- link-credit
+29 ns mon : Rsp ---->   link-credit
+29 ns mon : Dat ---->   link-credit
+  Passed: 100/100
+  [PASS] Property 1
+
+[Property 2] RD命令时序约束正确性 (100 iterations)
+  Passed: 100/100
+  [PASS] Property 2
+
+[Property 3] WR命令时序约束正确性 (100 iterations)
+  Passed: 100/100
+  [PASS] Property 3
+
+[Property 4] PRE命令时序约束正确性 (100 iterations)
+  Passed: 100/100
+  [PASS] Property 4
+
+[Property 5] REF命令时序约束正确性 (100 iterations)
+  Passed: 100/100
+  [PASS] Property 5
+
+[Property 6] timeToSatisfyConstraints返回最大约束值 (100 iterations)
+  Passed: 100/100
+  [PASS] Property 6
+
+[Property 7] MemSpec参数JSON序列化round-trip (验证)
+  Passed: 23/23
+  [PASS] Property 7
+
+[Property 8] Bank Group模式时序参数正确应用 (100 iterations)
+[REFRESH] REFAB at 2440 ns (next trigger: 2440 ns)
+  Passed: 100/100
+  [PASS] Property 8
+
+[Property 9] 突发长度对时序的影响 (验证)
+  BL32 burst duration: 10 ns
+  Passed: 11/11
+  [PASS] Property 9
+
+[Property 10] 预充电时序区分 (验证)
+  tRPab (13125 ps) >= tRPpb (11250 ps): PASS
+  Passed: 11/11
+  [PASS] Property 10
+
+--- ACT命令约束测试 ---
+ACT->ACT (同Bank, tRC)                           : [PASS] Expected >= 3682500 ps, Got: 3682500 ps
+ACT->ACT (不同Bank, tRRD)                       : [PASS] Expected >= 3651 ns, Got: 3657500 ps
+PREPB->ACT (tRPpb)                                : [PASS] Expected >= 3658250 ps, Got: 3685 ns
+PREAB->ACT (tRPab)                                : [PASS] Expected >= 3661125 ps, Got: 3685 ns
+REFAB->ACT (tRFCab)                               : [PASS] Expected >= 3835875 ps, Got: 3837500 ps
+REFPB->ACT (tRFCpb)                               : [PASS] Expected >= 3761875 ps, Got: 3837500 ps
+
+--- RD命令约束测试 ---
+ACT->RD (tRCD)                                    : [PASS] Expected >= 3686625 ps, Got: 3687500 ps
+RD->RD (16 Bank模式, tCCD)                      : [PASS] Expected >= 3697625 ps, Got: 3700 ns
+WR->RD (16 Bank模式)                            : [PASS] Expected >= 3709875 ps, Got: 3730 ns
+
+--- WR命令约束测试 ---
+ACT->WR (tRCD)                                    : [PASS] Expected >= 3722125 ps, Got: 3722500 ps
+WR->WR (16 Bank模式, tCCD)                      : [PASS] Expected >= 3733125 ps, Got: 3735 ns
+RD->WR (tRDWR)                                    : [PASS] Expected >= 3745375 ps, Got: 3760 ns
+
+--- PRE命令约束测试 ---
+ACT->PREPB (tRAS+2*tCK)                           : [PASS] Expected >= 3773875 ps, Got: 3775 ns
+RD->PREPB (tRTP)                                  : [PASS] Expected >= 3763625 ps, Got: 3775 ns
+WR->PREPB (tWRPRE)                                : [PASS] Expected >= 3770875 ps, Got: 3795 ns
+ACT->PREAB (tRAS+2*tCK)                           : [PASS] Expected >= 3799375 ps, Got: 3800 ns
+
+--- REF命令约束测试 ---
+PREAB->REFAB (tRPab)                              : [PASS] Expected >= 3786 ns, Got: 3837500 ps
+REFAB->REFAB (tRFCab)                             : [PASS] Expected >= 3962 ns, Got: 3962500 ps
+PREPB->REFPB (tRPpb)                              : [PASS] Expected >= 3799250 ps, Got: 3962500 ps
+REFPB->REFPB (同Bank, tRFCpb)                    : [PASS] Expected >= 3887750 ps, Got: 3962500 ps
+REFPB->REFPB (不同Bank, tPBR2PBR)               : [PASS] Expected >= 3868750 ps, Got: 3962500 ps
+
+--- Power Down命令约束测试 ---
+ACT->PDEA (tACTPDEN)                              : [PASS] Expected >= 3828500 ps, Got: 3830 ns
+PREPB->PDEA (tPRPDEN)                             : [PASS] Expected >= 3828250 ps, Got: 3830 ns
+PDEA->PDXA (tCKE)                                 : [PASS] Expected >= 3831750 ps, Got: 3832500 ps
+PDXA->ACT (tXP)                                   : [PASS] Expected >= 3832750 ps, Got: 3962500 ps
+PDXA->PDEA (tCKE)                                 : [PASS] Expected >= 3833750 ps, Got: 3835 ns
+PREAB->PDEP (tPRPDEN)                             : [PASS] Expected >= 3832250 ps, Got: 3832500 ps
+PDEP->PDXP (tCKE)                                 : [PASS] Expected >= 3835750 ps, Got: 3837500 ps
+PDXP->PDEP (tCKE)                                 : [PASS] Expected >= 3836750 ps, Got: 3837500 ps
+PDXP->ACT (tXP)                                   : [PASS] Expected >= 3837750 ps, Got: 3962500 ps
+PDXP->REFAB (tXP)                                 : [PASS] Expected >= 3838750 ps, Got: 3962500 ps
+REFAB->PDEP (tREFPDEN)                            : [PASS] Expected >= 3850375 ps, Got: 3852500 ps
+REFPB->PDEA (tREFPDEN)                            : [PASS] Expected >= 3862625 ps, Got: 3865 ns
+
+--- Self Refresh命令约束测试 ---
+PREAB->SREFEN (tRPab)                             : [PASS] Expected >= 3874250 ps, Got: 4025 ns
+PREPB->SREFEN (tRPpb)                             : [PASS] Expected >= 3873375 ps, Got: 4025 ns
+SREFEN->SREFEX (tSR)                              : [PASS] Expected >= 3872500 ps, Got: 3872500 ps
+SREFEX->ACT (tXSR)                                : [PASS] Expected >= 4050375 ps, Got: 4052500 ps
+SREFEX->REFAB (tXSR)                              : [PASS] Expected >= 4052625 ps, Got: 4055 ns
+SREFEX->REFPB (tXSR)                              : [PASS] Expected >= 4053625 ps, Got: 4055 ns
+SREFEX->SREFEN (tXSR)                             : [PASS] Expected >= 4054625 ps, Got: 4055 ns
+REFAB->SREFEN (tRFCab)                            : [PASS] Expected >= 4056250 ps, Got: 4057500 ps
+REFPB->SREFEN (tRFCpb)                            : [PASS] Expected >= 3981 ns, Got: 4057500 ps
+PDXP->SREFEN (tXP)                                : [PASS] Expected >= 3899500 ps, Got: 4057500 ps
+SREFEX->PDEP (tXSR)                               : [PASS] Expected >= 4083 ns, Got: 4085 ns
+
+======================================================================
+测试总结
+======================================================================
+通过: 54
+失败: 0
+总计: 54
+
+*** 所有测试通过! ***
+======================================================================
+
+
+✅ 频率比测试通过!
+
+Info: /OSCI/SystemC: Simulation stopped by user.
+DRAMSys.controller0  Total Time:     3896500 ps
+DRAMSys.controller0  AVG BW:         0.00   Gb/s | 0.00   GB/s | 0.00   %
+DRAMSys.controller0  AVG BW\IDLE:    -nan   Gb/s | -nan   GB/s | -nan   %
+DRAMSys.controller0  MAX BW:         51.20  Gb/s | 6.40   GB/s | 100.00 %
+Simulation took 0.071442 seconds.
+Payloads free/allocated/in use:     0/0/0
+========================================
+Log saved to: "/home/feng/DDR-MODEL/logs/sim_FREQ_RATIO_TEST_20260121_182133_770.log"
+========================================

@@ -42,6 +42,12 @@ lib/DRAMsys/lib/sqlite3/
 *.db
 *.sqlite
 
+# DRAMSys trace database files (should be in build/)
+*.tdb
+
+# Test log files in root (should be in logs/)
+test_*.log
+
 # Core dumps
 core
 core.*

@@ -53,6 +53,9 @@ target_link_libraries(${PROJECT_NAME}
         sqlite3::sqlite3
 )
 
+# Enable LPDDR5 simulation support
+target_compile_definitions(${PROJECT_NAME} PUBLIC LPDDR5_SIM)
+
 if (DRAMSYS_WITH_DRAMPOWER)
     target_link_libraries(${PROJECT_NAME} PRIVATE DRAMPower)
     target_compile_definitions(${PROJECT_NAME} PRIVATE DRAMPOWER)

@@ -9,6 +9,9 @@
 
 
 #include "DMU/DramMannageUnit.h"
+#include "DMU/d4_ac_timing_test.h"  // DDR4 AC Timing测试头文件
+#include "lp5_ac_timing_test.h"     // LPDDR5 AC Timing测试头文件
+#include "lp5_freq_ratio_test.h"    // LPDDR5 频率比测试头文件
 
 #include <DRAMSys/config/DRAMSysConfiguration.h>
 #include <DRAMSys/configuration/memspec/MemSpec.h>
@@ -29,7 +32,9 @@ enum class TrafficPattern
     SAME_BANK_DIFF_ROW,  // 同Bank不同Row（测试Row切换）
     DIFF_BANK_SAME_ROW,  // 不同Bank同Row（测试Bank并行）
     STRIDED,             // 固定步长访问
-    MIXED_RW             // 读写混合
+    MIXED_RW,            // 读写混合
+    AC_TIMING_TEST,      // AC Timing约束测试
+    FREQ_RATIO_TEST      // 频率比测试
 };
 
 // 获取Pattern名称的全局函数
@@ -43,6 +48,8 @@ const char* get_pattern_name(TrafficPattern p)
         case TrafficPattern::DIFF_BANK_SAME_ROW: return "DIFF_BANK_SAME_ROW";
         case TrafficPattern::STRIDED:            return "STRIDED";
         case TrafficPattern::MIXED_RW:           return "MIXED_RW";
+        case TrafficPattern::AC_TIMING_TEST:     return "AC_TIMING_TEST";
+        case TrafficPattern::FREQ_RATIO_TEST:    return "FREQ_RATIO_TEST";
         default: return "UNKNOWN";
     }
 }
@@ -374,6 +381,8 @@ TrafficPattern parse_pattern(const char* pattern_arg)
     if (p == "DIFF_BANK_SAME_ROW" || p == "3") return TrafficPattern::DIFF_BANK_SAME_ROW;
     if (p == "STRIDED" || p == "4") return TrafficPattern::STRIDED;
     if (p == "MIXED_RW" || p == "5") return TrafficPattern::MIXED_RW;
+    if (p == "AC_TIMING_TEST" || p == "6") return TrafficPattern::AC_TIMING_TEST;
+    if (p == "FREQ_RATIO_TEST" || p == "7") return TrafficPattern::FREQ_RATIO_TEST;
     return TrafficPattern::SEQUENTIAL; // default
 }
 
@@ -387,10 +396,14 @@ void print_usage()
     std::cout << "  3 or DIFF_BANK_SAME_ROW - 不同Bank同Row" << std::endl;
     std::cout << "  4 or STRIDED           - 步长访问" << std::endl;
     std::cout << "  5 or MIXED_RW          - 读写混合" << std::endl;
+    std::cout << "  6 or AC_TIMING_TEST    - AC Timing约束测试" << std::endl;
+    std::cout << "  7 or FREQ_RATIO_TEST   - 频率比测试（1:1, 1:2, 1:4）" << std::endl;
 }
 
 int sc_main(int argc, char** argv)
 {
+    try
+    {
     //========================================================================
     // 解析命令行参数选择流量模式
     //========================================================================
@@ -446,7 +459,9 @@ int sc_main(int argc, char** argv)
 
     /* Configure the configure file directory and bus width */
     std::filesystem::path resourceDirectory = DRAMSYS_RESOURCE_DIR;
-    std::filesystem::path baseConfig = resourceDirectory / "lpddr4-example.json";
+    // std::filesystem::path baseConfig = resourceDirectory / "lpddr4-example.json";
+    std::filesystem::path baseConfig = resourceDirectory / "ddr4-example.json";
+    
     
     // 解析命令行参数：第一个可以是Pattern，第二个可以是配置文件，第三个可以是资源目录
     int config_arg_offset = 1; // 配置文件参数的位置
@@ -496,12 +511,86 @@ int sc_main(int argc, char** argv)
     tg.initiator.bind(mon.target);
     mon.initiator.bind(dmu.chi_port->target);
 
-    // 生成流量
-    TrafficPatternGenerator pattern_gen(42); // seed for reproducibility
-    pattern_gen.setAddressDecoder(&addressDecoder);  // 使用精确的地址编码
-    pattern_gen.generate(tg, selected_pattern, num_requests, true);
-    
-    sc_core::sc_start(200, sc_core::SC_US);
+    // 生成流量或运行AC Timing测试
+    if (selected_pattern == TrafficPattern::AC_TIMING_TEST)
+    {
+        // 检测内存类型并运行相应的AC Timing测试
+        const auto& memSpec = *dmu.dramSys->getConfig().memSpec;
+        bool test_passed = false;
+        
+        if (memSpec.memoryType == DRAMSys::MemSpec::MemoryType::LPDDR5)
+        {
+            std::cout << "\n========================================" << std::endl;
+            std::cout << "运行 LPDDR5 AC Timing 约束测试" << std::endl;
+            std::cout << "========================================\n" << std::endl;
+            
+            test_passed = run_lp5_ac_timing_tests(dmu.dramSys.get());
+        }
+        else
+        {
+            std::cout << "\n========================================" << std::endl;
+            std::cout << "运行 DDR4 AC Timing 约束测试" << std::endl;
+            std::cout << "========================================\n" << std::endl;
+            
+            test_passed = run_ac_timing_tests(dmu.dramSys.get());
+        }
+        
+        if (test_passed)
+        {
+            std::cout << "\nAC Timing测试完成!" << std::endl;
+        }
+        else
+        {
+            std::cout << "\nAC Timing测试失败!" << std::endl;
+        }
+        
+        // AC Timing测试不需要运行仿真
+        sc_core::sc_stop();
+    }
+    else if (selected_pattern == TrafficPattern::FREQ_RATIO_TEST)
+    {
+        // 运行频率比测试
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "运行 LPDDR5 频率比测试" << std::endl;
+        std::cout << "测试 1:1, 1:2, 1:4 频率比配置" << std::endl;
+        std::cout << "========================================\n" << std::endl;
+        
+        // 检查当前配置是否为LPDDR5
+        const auto& memSpec = *dmu.dramSys->getConfig().memSpec;
+        if (memSpec.memoryType != DRAMSys::MemSpec::MemoryType::LPDDR5)
+        {
+            std::cout << "\n❌ 错误: 频率比测试仅支持LPDDR5配置！" << std::endl;
+            std::cout << "请使用LPDDR5配置文件运行测试" << std::endl;
+            sc_core::sc_stop();
+        }
+        else
+        {
+            // 运行当前配置的AC Timing测试
+            std::cout << "\n测试配置: " << baseConfig << std::endl;
+            bool test_passed = run_lp5_ac_timing_tests(dmu.dramSys.get());
+            
+            if (test_passed)
+            {
+                std::cout << "\n✅ 频率比测试通过!" << std::endl;
+            }
+            else
+            {
+                std::cout << "\n❌ 频率比测试失败!" << std::endl;
+            }
+            
+            // 频率比测试不需要运行仿真
+            sc_core::sc_stop();
+        }
+    }
+    else
+    {
+        // 生成流量
+        TrafficPatternGenerator pattern_gen(42); // seed for reproducibility
+        pattern_gen.setAddressDecoder(&addressDecoder);  // 使用精确的地址编码
+        pattern_gen.generate(tg, selected_pattern, num_requests, true);
+        
+        sc_core::sc_start(200, sc_core::SC_US);
+    }
     // sc_core::sc_pause();
     // // tg.add_payload(ARM::CHI::REQ_OPCODE_READ_NO_SNP, 0x00001000, ARM::CHI::SIZE_32);
     // // tg.add_payload(ARM::CHI::REQ_OPCODE_READ_NO_SNP, 0x40001000, ARM::CHI::SIZE_32);
@@ -527,4 +616,15 @@ int sc_main(int argc, char** argv)
     logStream.close();
 
     return 0;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "\n[FATAL ERROR] Exception caught in sc_main: " << e.what() << std::endl;
+        return 1;
+    }
+    catch (...)
+    {
+        std::cerr << "\n[FATAL ERROR] Unknown exception caught in sc_main!" << std::endl;
+        return 1;
+    }
 }

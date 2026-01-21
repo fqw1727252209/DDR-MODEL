@@ -299,7 +299,11 @@ void Controller::registerIdleCallback(std::function<void()> idleCallback)
 
 void Controller::controllerMethod()
 {
-    if (isFullCycle(sc_time_stamp(), memSpec.tCK))
+    // Use controller clock period instead of DRAM tCK
+    // This supports different controller:DRAM frequency ratios (1:1, 1:2, 1:4)
+    sc_time controllerClockPeriod = memSpec.getControllerClockPeriod();
+    
+    if (isFullCycle(sc_time_stamp(), controllerClockPeriod))
     {
         // (1) Finish last response (END_RESP) and start new response (BEGIN_RESP)
         manageResponses();

@@ -1,0 +1,184 @@
+========================================
+Log file: "/home/feng/DDR-MODEL/logs/sim_FREQ_RATIO_TEST_20260121_182030_965.log"
+Timestamp: 20260121_182030_965
+Pattern: FREQ_RATIO_TEST
+Requests: 20000
+========================================
+this is DRAMsys test
+
+[38;5;232m■ ■ [0m[38;5;22m■  [0m[1;37mDRAMSys5.0, Copyright (c) 2023[0m
+[38;5;232m■ [0m[38;5;22m■ [0m[38;5;28m■  [0mRPTU Kaiserslautern-Landau,
+[38;5;22m■ [0m[38;5;28m■ [0m[38;5;82m■  [0mFraunhofer IESE
+
+===========================================================================
+Memory Configuration:
+
+ Memory type:           LPDDR5
+ Memory size in bytes:  2147483648
+ Channels:              1
+ Ranks per channel:     1
+ Banks per rank:        16
+ Bank groups per rank:  8
+ Banks per bank group:  2
+ Bank group mode:       16 Bank
+ WCK/CK ratio:          4:1
+ Rows per bank:         65536
+ Columns per row:       1024
+ Device width in bits:  16
+ Device size in bits:   17179869184
+ Device size in bytes:  2147483648
+ Devices per rank:      1
+ Default burst length:  16
+
+===========================================================================
+Used Address Mapping:
+
+ Bg  2: 0000000000000000000000000000000000100000000000000000000000000000
+ Bg  1: 0000000000000000000000000000000000010000000000000000000000000000
+ Bg  0: 0000000000000000000000000000000000001000000000000000000000000000
+ Ba  0: 0000000000000000000000000000000001000000000000000000000000000000
+ Ro 15: 0000000000000000000000000000000000000100000000000000000000000000
+ Ro 14: 0000000000000000000000000000000000000010000000000000000000000000
+ Ro 13: 0000000000000000000000000000000000000001000000000000000000000000
+ Ro 12: 0000000000000000000000000000000000000000100000000000000000000000
+ Ro 11: 0000000000000000000000000000000000000000010000000000000000000000
+ Ro 10: 0000000000000000000000000000000000000000001000000000000000000000
+ Ro  9: 0000000000000000000000000000000000000000000100000000000000000000
+ Ro  8: 0000000000000000000000000000000000000000000010000000000000000000
+ Ro  7: 0000000000000000000000000000000000000000000001000000000000000000
+ Ro  6: 0000000000000000000000000000000000000000000000100000000000000000
+ Ro  5: 0000000000000000000000000000000000000000000000010000000000000000
+ Ro  4: 0000000000000000000000000000000000000000000000001000000000000000
+ Ro  3: 0000000000000000000000000000000000000000000000000100000000000000
+ Ro  2: 0000000000000000000000000000000000000000000000000010000000000000
+ Ro  1: 0000000000000000000000000000000000000000000000000001000000000000
+ Ro  0: 0000000000000000000000000000000000000000000000000000100000000000
+ Co  9: 0000000000000000000000000000000000000000000000000000010000000000
+ Co  8: 0000000000000000000000000000000000000000000000000000001000000000
+ Co  7: 0000000000000000000000000000000000000000000000000000000100000000
+ Co  6: 0000000000000000000000000000000000000000000000000000000010000000
+ Co  5: 0000000000000000000000000000000000000000000000000000000001000000
+ Co  4: 0000000000000000000000000000000000000000000000000000000000100000
+ Co  3: 0000000000000000000000000000000000000000000000000000000000010000
+ Co  2: 0000000000000000000000000000000000000000000000000000000000001000
+ Co  1: 0000000000000000000000000000000000000000000000000000000000000100
+ Co  0: 0000000000000000000000000000000000000000000000000000000000000010
+ By  0: 0000000000000000000000000000000000000000000000000000000000000001
+
+===========================================================================
+
+========== Address Mapping Parameters ==========
+  Byte bits:       1
+  Column bits:     10 (columns: 1024)
+  Row bits:        16 (rows: 65536)
+  Bank bits:       1 (banks/group: 2)
+  BankGroup bits:  3 (groups: 8)
+  Page size:       2048 bytes (2 KB)
+  Bank size:       134217728 bytes (128 MB)
+================================================
+
+
+========================================
+运行 LPDDR5 频率比测试
+测试 1:1, 1:2, 1:4 频率比配置
+========================================
+
+
+测试配置: "lib/DRAMsys/configs/lpddr5-example.json"
+
+========== LPDDR5 时序参数 ==========
+tCK:      625 ps
+tRCD:     11250 ps
+tRAS:     26250 ps
+tRPpb:    11250 ps
+tRPab:    13125 ps
+tRC:      37500 ps
+tRRD:     5 ns
+tCCD:     5 ns
+tCCD_L:   5 ns
+tCCD_S:   2500 ps
+tWTR:     7500 ps
+tWTR_L:   7500 ps
+tWTR_S:   3750 ps
+tRTP:     5 ns
+tWR:      11250 ps
+tRFCab:   175 ns
+tRFCpb:   87500 ps
+tPBR2PBR: 56250 ps
+tFAW:     20 ns
+Bank Group Mode: 16 Bank
+====================================
+
+
+======================================================================
+LPDDR5 AC Timing Checker 测试开始
+Bank Group Mode: 16 Bank
+======================================================================
+
+--- Property-Based Tests ---
+
+[Property 1] ACT命令时序约束正确性 (100 iterations)
+1 ns mon : Req   <---- link-credit
+1 ns mon : Dat   <---- link-credit
+1 ns mon : Rsp ---->   link-credit
+1 ns mon : Dat ---->   link-credit
+3 ns mon : Req   <---- link-credit
+3 ns mon : Dat   <---- link-credit
+3 ns mon : Rsp ---->   link-credit
+3 ns mon : Dat ---->   link-credit
+5 ns mon : Req   <---- link-credit
+5 ns mon : Dat   <---- link-credit
+5 ns mon : Rsp ---->   link-credit
+5 ns mon : Dat ---->   link-credit
+7 ns mon : Req   <---- link-credit
+7 ns mon : Dat   <---- link-credit
+7 ns mon : Rsp ---->   link-credit
+7 ns mon : Dat ---->   link-credit
+9 ns mon : Req   <---- link-credit
+9 ns mon : Dat   <---- link-credit
+9 ns mon : Rsp ---->   link-credit
+9 ns mon : Dat ---->   link-credit
+11 ns mon : Req   <---- link-credit
+11 ns mon : Dat   <---- link-credit
+11 ns mon : Rsp ---->   link-credit
+11 ns mon : Dat ---->   link-credit
+13 ns mon : Req   <---- link-credit
+13 ns mon : Dat   <---- link-credit
+13 ns mon : Rsp ---->   link-credit
+13 ns mon : Dat ---->   link-credit
+15 ns mon : Req   <---- link-credit
+15 ns mon : Dat   <---- link-credit
+15 ns mon : Rsp ---->   link-credit
+15 ns mon : Dat ---->   link-credit
+17 ns mon : Req   <---- link-credit
+17 ns mon : Dat   <---- link-credit
+17 ns mon : Rsp ---->   link-credit
+17 ns mon : Dat ---->   link-credit
+19 ns mon : Req   <---- link-credit
+19 ns mon : Dat   <---- link-credit
+19 ns mon : Rsp ---->   link-credit
+19 ns mon : Dat ---->   link-credit
+21 ns mon : Req   <---- link-credit
+21 ns mon : Dat   <---- link-credit
+21 ns mon : Rsp ---->   link-credit
+21 ns mon : Dat ---->   link-credit
+23 ns mon : Req   <---- link-credit
+23 ns mon : Dat   <---- link-credit
+23 ns mon : Rsp ---->   link-credit
+23 ns mon : Dat ---->   link-credit
+25 ns mon : Req   <---- link-credit
+25 ns mon : Dat   <---- link-credit
+25 ns mon : Rsp ---->   link-credit
+25 ns mon : Dat ---->   link-credit
+27 ns mon : Req   <---- link-credit
+27 ns mon : Dat   <---- link-credit
+27 ns mon : Rsp ---->   link-credit
+27 ns mon : Dat ---->   link-credit
+29 ns mon : Req   <---- link-credit
+29 ns mon : Dat   <---- link-credit
+29 ns mon : Rsp ---->   link-credit
+29 ns mon : Dat ---->   link-credit
+  Passed: 100/100
+  [PASS] Property 1
+
+[Property 2] RD命令时序约束正确性 (100 iterations)

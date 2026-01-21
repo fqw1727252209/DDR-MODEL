@@ -1,0 +1,12 @@
+{
+    "simulation": {
+        "simconfig": "example.json",
+        "addressmapping": "am_lpddr5_16Gbx16_brc.json",
+        "mcconfig": "fr_fcfs.json",
+        "memspec": "JEDEC_LPDDR5-6400_1to4.json",
+        "simulationid": "lpddr5-1to4-example",
+        "databaseRecording": {
+            "enable": false
+        }
+    }
+}

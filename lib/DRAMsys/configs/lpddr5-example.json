@@ -1,0 +1,15 @@
+{
+    "simulation": {
+        "addressmapping": "am_lpddr5_16Gbx16_brc.json",
+        "mcconfig": "fr_fcfs.json",
+        "memspec": "JEDEC_LPDDR5-6400.json",
+        "simconfig": "example.json",
+        "simulationid": "lpddr5-example",
+        "tracesetup": [
+            {
+                "clkMhz": 200,
+                "name": "example.stl"
+            }
+        ]
+    }
+}
