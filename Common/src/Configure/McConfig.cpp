@@ -1,0 +1,105 @@
+#include "Configure/McConfig.hh"
+#include "Configure/LoadControllerConfig.hh"
+
+namespace dmu{
+    namespace Controller{
+
+    McConfig::McConfig(const ControllerConfig& controller_config)
+    : RD_QOS_LEVEL_0(controller_config.RD_QOS_LEVEL_0)
+    , RD_QOS_LEVEL_1(controller_config.RD_QOS_LEVEL_1)
+    , WR_QOS_LEVEL(controller_config.WR_QOS_LEVEL)
+
+    , GPR_EXPIRED_TIME(controller_config.GPR_EXPIRED_TIME)
+    , GPW_EXPIRED_TIME(controller_config.GPW_EXPIRED_TIME)
+
+    , PHY_CMD_DELAY(controller_config.PHY_CMD_DELAY)
+    , PHY_RDAT_DELAY(controller_config.PHY_RDAT_DELAY)
+    , PHY_WDAT_DELAY(controller_config.PHY_WDAT_DELAY)
+
+    , RD_CAM_DEPTH(controller_config.SchedulerConfig.RD_CAM_DEPTH)
+    , WR_CAM_DEPTH(controller_config.SchedulerConfig.WR_CAM_DEPTH)
+    , WDAT_BUFFER_DEPTH(controller_config.SchedulerConfig.WDAT_BUFFER_DEPTH)
+    , RDAT_BUFFER_DEPTH(controller_config.SchedulerConfig.RDAT_BUFFER_DEPTH)
+    , BSC_NUM(controller_config.SchedulerConfig.BSC_NUM)
+    , AUTO_PRECHARGE_ENABLE(controller_config.SchedulerConfig.AUTO_PRECHARGE_ENABLE)
+    , NCWEN(controller_config.SchedulerConfig.NCWEN)
+    , BANK_HASH_ENABLE(controller_config.SchedulerConfig.BANK_HASH_ENABLE)
+    , BSC_USED_HIGH_THRESHOLD(controller_config.SchedulerConfig.BSC_USED_HIGH_THRESHOLD)
+    , BSC_USED_LOW_THRESHOLD(controller_config.SchedulerConfig.BSC_USED_LOW_THRESHOLD)
+    , DYNAMIC_BSC_ENABLE(controller_config.SchedulerConfig.DYNAMIC_BSC_ENABLE)
+    , DYNAMIC_BSC_BUSY_RELEASE_ENABLE(controller_config.SchedulerConfig.DYNAMIC_BSC_BUSY_RELEASE_ENABLE)
+    , BSC_DEEP_RELEASE_ENABLE(controller_config.SchedulerConfig.BSC_DEEP_RELEASE_ENABLE)
+    , DYNAMIC_BSC_BUSY_MASK_ENABLE(controller_config.SchedulerConfig.DYNAMIC_BSC_BUSY_MASK_ENABLE)
+    , BSC_TERMINATE_BROKEN_ENABLE(controller_config.SchedulerConfig.BSC_TERMINATE_BROKEN_ENABLE)
+    , BSC_TERMINATE_ENABLE(controller_config.SchedulerConfig.BSC_TERMINATE_ENABLE)
+
+    , HPR_CREDIT(controller_config.SchedulerConfig.HPR_CREDIT)
+    , LPR_CREDIT(controller_config.SchedulerConfig.LPR_CREDIT)
+    , TPW_CREDIT(controller_config.SchedulerConfig.TPW_CREDIT)
+    , HPR_FILL_LEVEL_MODE(controller_config.SchedulerConfig.HPR_FILL_LEVEL_MODE)
+    , LPR_FILL_LEVEL_MODE(controller_config.SchedulerConfig.LPR_FILL_LEVEL_MODE)
+    , TPW_FILL_LEVEL_MODE(controller_config.SchedulerConfig.TPW_FILL_LEVEL_MODE)
+    , HPR_STARVE_COUNT_MODE(controller_config.SchedulerConfig.HPR_STARVE_COUNT_MODE)
+    , LPR_STARVE_COUNT_MODE(controller_config.SchedulerConfig.LPR_STARVE_COUNT_MODE)
+    , TPW_STARVE_COUNT_MODE(controller_config.SchedulerConfig.TPW_STARVE_COUNT_MODE)
+
+    , HPR_HIGH_THRESHOLD(controller_config.SchedulerConfig.HPR_HIGH_THRESHOLD)
+    , HPR_LOW_THRESHOLD(controller_config.SchedulerConfig.HPR_LOW_THRESHOLD)
+    , LPR_HIGH_THRESHOLD(controller_config.SchedulerConfig.LPR_HIGH_THRESHOLD)
+    , LPR_LOW_THRESHOLD(controller_config.SchedulerConfig.LPR_LOW_THRESHOLD)
+    , TPW_HIGH_THRESHOLD(controller_config.SchedulerConfig.TPW_HIGH_THRESHOLD)
+    , TPW_LOW_THRESHOLD(controller_config.SchedulerConfig.TPW_LOW_THRESHOLD)
+
+    , WR_COMBINE_ENABLE(controller_config.SchedulerConfig.WR_COMBINE_ENABLE)
+    , HPR_MAX_STARVE(controller_config.SchedulerConfig.HPR_MAX_STARVE)
+    , LPR_MAX_STARVE(controller_config.SchedulerConfig.LPR_MAX_STARVE)
+    , TPW_MAX_STARVE(controller_config.SchedulerConfig.TPW_MAX_STARVE)
+    , HPR_CMD_RUNLEN(controller_config.SchedulerConfig.HPR_CMD_RUNLEN)
+    , LPR_CMD_RUNLEN(controller_config.SchedulerConfig.LPR_CMD_RUNLEN)
+    , TPW_CMD_RUNLEN(controller_config.SchedulerConfig.TPW_CMD_RUNLEN)
+    , Max_RW_BEFORE_SWITCH(controller_config.SchedulerConfig.Max_RW_BEFORE_SWITCH)
+    , OPP_HIT_CNT(controller_config.SchedulerConfig.OPP_HIT_CNT)
+    , MODE_SWITCH_POLICY(controller_config.SchedulerConfig.MODE_SWITCH_POLICY)
+    , WR_HIT_LIMIT_THRESHOLD(controller_config.SchedulerConfig.WR_HIT_LIMIT_THRESHOLD)
+    , RD_HIT_LIMIT_THRESHOLD(controller_config.SchedulerConfig.RD_HIT_LIMIT_THRESHOLD)
+    , RD_CMD_AGING_LIMIT(controller_config.SchedulerConfig.RD_CMD_AGING_LIMIT)
+    , WE_CMD_AGING_LIMIT(controller_config.SchedulerConfig.WE_CMD_AGING_LIMIT)
+    , WR_OPPOSITE_ACT_ENABLE(controller_config.SchedulerConfig.WR_OPPOSITE_ACT_ENABLE)
+    , RD_OPPOSITE_ACT_ENABLE(controller_config.SchedulerConfig.RD_OPPOSITE_ACT_ENABLE)
+    , PREFER_HIT_HPR(controller_config.SchedulerConfig.PREFER_HIT_HPR)
+
+    , REFRESH_ENABLE(controller_config.RefreshConfig.REFRESH_ENABLE)
+    , REFRESH_PENDING_THRESHOLD(controller_config.RefreshConfig.REFRESH_PENDING_THRESHOLD)
+    , REFRESH_POSTPONE_ENABLE(controller_config.RefreshConfig.REFRESH_POSTPONE_ENABLE)
+    , POSTPONE_LOW_THRESHOLD_SAME_BANK(controller_config.RefreshConfig.POSTPONE_LOW_THRESHOLD_SAME_BANK)
+    , POSTPONE_LOW_THRESHOLD_ALL_BANK(controller_config.RefreshConfig.POSTPONE_LOW_THRESHOLD_ALL_BANK)
+    , ACT_MASK_NORMAL_REFRESH_ENABLE(controller_config.RefreshConfig.ACT_MASK_NORMAL_REFRESH_ENABLE)
+    , CRITICAL_REFRESH_MASK_ACT_ENABLE(controller_config.RefreshConfig.CRITICAL_REFRESH_MASK_ACT_ENABLE)
+    //
+    , RD_DAT_INFO_DEPTH(controller_config.PortConfig.RD_DAT_INFO_DEPTH)
+    , WR_DAT_BUFFER_DEPTH(controller_config.PortConfig.WR_DAT_BUFFER_DEPTH)
+    , LPR_QUEUE_DEPTH(controller_config.PortConfig.LPR_QUEUE_DEPTH)
+    , HPR_QUEUE_DEPTH(controller_config.PortConfig.HPR_QUEUE_DEPTH)
+    , TPW_QUEUE_DEPTH(controller_config.PortConfig.TPW_QUEUE_DEPTH)
+    , WR_CQ_DEPTH(controller_config.PortConfig.WR_CQ_DEPTH)
+    , RD_CQ_DEPTH(controller_config.PortConfig.RD_CQ_DEPTH)
+    , RSP0_FIFO_DEPTH(controller_config.PortConfig.RSP0_FIFO_DEPTH)
+    , RSP1_FIFO_DEPTH(controller_config.PortConfig.RSP1_FIFO_DEPTH)
+    , RSP2_FIFO_DEPTH(controller_config.PortConfig.RSP2_FIFO_DEPTH)
+    , RSP3_FIFO_DEPTH(controller_config.PortConfig.RSP3_FIFO_DEPTH)
+    , RSP4_FIFO_DEPTH(controller_config.PortConfig.RSP4_FIFO_DEPTH)
+    , RSP5_FIFO_DEPTH(controller_config.PortConfig.RSP5_FIFO_DEPTH)
+    , RETRY_GPR_EXPIRED_ENABLE(controller_config.PortConfig.RETRY_GPR_EXPIRED_ENABLE)
+    , RETRY_GPW_EXPIRED_ENABLE(controller_config.PortConfig.RETRY_GPW_EXPIRED_ENABLE)
+    , RETRY_GPR_EXPIRED_TIME(controller_config.PortConfig.RETRY_GPR_EXPIRED_TIME)
+    , RETRY_GPW_EXPIRED_TIME(controller_config.PortConfig.RETRY_GPW_EXPIRED_TIME)
+    , MIN_LGPR_QUEUE_DEPTH(controller_config.PortConfig.MIN_LGPR_QUEUE_DEPTH)
+    , MIN_HPR_QUEUE_DEPTH(controller_config.PortConfig.MIN_HPR_QUEUE_DEPTH)
+    , PA_RDWR_SWITCH_FAST(controller_config.PortConfig.PA_RDWR_SWITCH_FAST)
+    , PORT_AGING_INIT(controller_config.PortConfig.PORT_AGING_INIT)
+    {
+
+    }
+
+    }
+}

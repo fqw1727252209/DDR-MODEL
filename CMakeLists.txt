@@ -1,94 +1,57 @@
-cmake_minimum_required(VERSION 3.24.0)
-project(DDR_TLM)
+cmake_minimum_required(VERSION 3.12)
 
+project(DDR_TLM LANGUAGES CXX)
+
+# 设置C++标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-
 set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_EXPORT_COMPILE_COMMANDS True)
-message("CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include(FetchContent)
+# 添加构建测试的选项
+option(BUILD_TEST "Build test files" OFF)
 
+# 设置third_party路径
+set(THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 
-set(Third_LIBRARY_HOME ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-set(AMBA_TLM_HOME ${Third_LIBRARY_HOME}/amba_tlm)
-set(DRAMsys_HOME ${Third_LIBRARY_HOME}/DRAMsys)
-set(TEST_HOME ${CMAKE_CURRENT_SOURCE_DIR}/test)
-### complie output option ###
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/build/bin)
+# 不再查找外部SystemC，而是使用third_party中的SystemC
+# list(APPEND CMAKE_PREFIX_PATH $ENV{SYSTEMC_HOME})
+# find_package(SystemCLanguage REQUIRED)
 
-if(POLICY CMP0135)
-    cmake_policy(SET CMP0135 NEW)
+# 包含目录 - 添加third_party库的包含路径
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/CHIPort/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Controller/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Common/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/DMU/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/amba_tlm/include
+    # ${CMAKE_CURRENT_SOURCE_DIR}/utils
+    ${THIRD_PARTY_DIR}/systemc/include
+    ${THIRD_PARTY_DIR}/rapidjson/include
+)
+
+# 添加子目录 - 包含third_party库
+add_subdirectory(third_party/systemc-2.3.3)
+add_subdirectory(third_party/amba_tlm)
+add_subdirectory(CHIPort)
+add_subdirectory(Controller)
+
+# 只有当BUILD_TEST选项开启时才构建测试可执行文件
+if(BUILD_TEST)
+    # add_executable(ddr_chi_test
+    #     CHIPort/test/CHIPortTest.cpp
+    #     # 可以添加更多测试文件
+    # )
+
+    # target_link_libraries(ddr_chi_test
+    #     PRIVATE
+    #         CHIPort
+    #         Controller
+    #         SystemC::systemc
+    #         AMBA_TLM_CHI
+    # )
+
+    # set_target_properties(ddr_chi_test PROPERTIES
+    #     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    # )
 endif()
-
-### Thread ###
-find_package(Threads REQUIRED)
-
-### SystemC ###
-# 设置SYSTEMC_HOME（可通过环境变量覆盖）
-if(DEFINED ENV{SYSTEMC_HOME})
-    set(SYSTEMC_HOME $ENV{SYSTEMC_HOME})
-else()
-    set(SYSTEMC_HOME "/opt/systemc-2")  # 默认路径
-endif()
-
-set(DISABLE_COPYRIGHT_MESSAGE True)
-
-# 检查本地SystemC是否存在
-if(EXISTS "${SYSTEMC_HOME}/include/systemc.h" AND EXISTS "${SYSTEMC_HOME}/lib/libsystemc.so")
-    message(STATUS "Found local SystemC at: ${SYSTEMC_HOME}")
-    
-    # 为传统安装的SystemC创建IMPORTED target (使用动态库)
-    if(NOT TARGET SystemC::systemc)
-        add_library(SystemC::systemc SHARED IMPORTED GLOBAL)
-        set_target_properties(SystemC::systemc PROPERTIES
-            IMPORTED_LOCATION "${SYSTEMC_HOME}/lib/libsystemc.so"
-            INTERFACE_INCLUDE_DIRECTORIES "${SYSTEMC_HOME}/include"
-            INTERFACE_COMPILE_DEFINITIONS "SC_INCLUDE_DYNAMIC_PROCESSES"
-            INTERFACE_LINK_LIBRARIES "Threads::Threads"
-        )
-    endif()
-    # 创建SystemC::SystemC target（一些库使用这个名称）
-    if(NOT TARGET SystemC::SystemC)
-        add_library(SystemC::SystemC SHARED IMPORTED GLOBAL)
-        set_target_properties(SystemC::SystemC PROPERTIES
-            IMPORTED_LOCATION "${SYSTEMC_HOME}/lib/libsystemc.so"
-            INTERFACE_INCLUDE_DIRECTORIES "${SYSTEMC_HOME}/include"
-            INTERFACE_COMPILE_DEFINITIONS "SC_INCLUDE_DYNAMIC_PROCESSES"
-            INTERFACE_LINK_LIBRARIES "Threads::Threads"
-        )
-    endif()
-else()
-    # 如果本地没有找到，尝试从gitee下载
-    message(STATUS "Local SystemC not found at ${SYSTEMC_HOME}, fetching from gitee...")
-    FetchContent_Declare(
-        systemc
-        GIT_REPOSITORY https://gitee.com/mirrors/systemc.git
-        GIT_TAG 2.3.4
-    )
-    FetchContent_MakeAvailable(systemc)
-endif()
-
-### amba tlm ###
-add_subdirectory(${Third_LIBRARY_HOME}/amba_tlm)
-### DRAMsys ###
-add_subdirectory(${Third_LIBRARY_HOME}/DRAMsys)
-### CHI Port ###
-set(CHI_PORT_HOME ${CMAKE_CURRENT_SOURCE_DIR}/CHIPort)
-add_subdirectory(${CHI_PORT_HOME})
-### DMU ###
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/DMU)
-### Controller ###
-# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Controller)
-
-### test ###
-# add_subdirectory(${TEST_HOME}/DDR_test)
-
-### complie option ###
-# set(SYSTEMC_FLAGS -pthread -fpermissive -DSC_INCLUDE_DYNAMIC_PROCESSES)
-# set(ALL_FLAGS -g ${SYSTEMC_FLAGS})
-
-

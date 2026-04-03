@@ -1,0 +1,5 @@
+{
+    "address_mapping_filename": "am_ddr5_16Gbx8_3ds_2H_brc_map2.json",
+    "mem_spec_filename": "16Gb_DDR5_6400_B_x8_3DS_2H.json",
+    "controller_config_filename": "controller_config.json"
+}

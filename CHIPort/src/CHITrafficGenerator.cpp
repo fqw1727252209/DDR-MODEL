@@ -1,20 +1,14 @@
 #include <cstring>
- 
+
+#include "ARM/TLM/arm_chi_phase.h"
 #include "CHIPort/CHITrafficGenerator.h"
 
-#include <random>
+#include "Common/CommonDefine.hh"
+namespace dmu{
+    namespace Port{
 
 void CHITrafficGenerator::clock_posedge()
 {
-    for (const auto channel : {
-             ARM::CHI::CHANNEL_REQ,
-             ARM::CHI::CHANNEL_RSP,
-             ARM::CHI::CHANNEL_DAT,
-         })
-    {
-        channels[channel].rx_credits_update();
-    }
-
     if (!channels[ARM::CHI::CHANNEL_RSP].rx_queue.empty())
     {
         const CHIFlit rsp_flit = channels[ARM::CHI::CHANNEL_RSP].rx_queue.front();
@@ -29,15 +23,16 @@ void CHITrafficGenerator::clock_posedge()
             break;
         case ARM::CHI::RSP_OPCODE_COMP:
             /* ignore a separate Comp */
-            break;
-        case ARM::CHI::RSP_OPCODE_READ_RECEIPT:
-            std::cout<<"current time at: "<<sc_core::sc_time_stamp()<<" receive the ReadRecipt from downstrem"<<std::endl;
+            // XREPORT(" received Comp, ignoring");
             break;
         case ARM::CHI::RSP_OPCODE_RETRY_ACK:
-            std::cout<<"current time at: "<<sc_core::sc_time_stamp()<<" receive the RetryAck from downstrem"<<std::endl;
+            // XREPORT(" received RetryAck, ignoring");
             break;
         case ARM::CHI::RSP_OPCODE_PCRD_GRANT:
-            std::cout<<"current time at: "<<sc_core::sc_time_stamp()<<" receive the PcrdGrant from downstrem"<<std::endl;
+            // XREPORT(" received PCRD Grant, ignoring");
+            break;
+        case ARM::CHI::RSP_OPCODE_READ_RECEIPT:
+            DPRINT_INFO(true, "Traffic Generator", "Received Read Receipt response");
             break;
         default:
             SC_REPORT_ERROR(name(), "unexpected response opcode received");
@@ -130,9 +125,9 @@ CHITrafficGenerator::CHITrafficGenerator(const sc_core::sc_module_name& name, co
 
     /* We will need to issue link credits to our peer so that they can ... */
     for (const auto channel : {
-             ARM::CHI::CHANNEL_RSP, /* ... send responses (e.g. DBIDResp */
-             ARM::CHI::CHANNEL_DAT, /* ... send write data (e.g. CompData) */
-         })
+            ARM::CHI::CHANNEL_RSP, /* ... send responses (e.g. DBIDResp */
+            ARM::CHI::CHANNEL_DAT, /* ... send write data (e.g. CompData) */
+        })
     {
         channels[channel].rx_credits_available = CHI_MAX_LINK_CREDITS;
     }
@@ -147,11 +142,9 @@ void CHITrafficGenerator::add_payload(
     req_phase.tgt_id = 2;
     req_phase.src_id = 1;
     req_phase.txn_id = txn_id++;
-    if(req_opcode == ARM::CHI::REQ_OPCODE_READ_NO_SNP)
-        req_phase.return_txn_id = txn_id++;
     req_phase.req_opcode = req_opcode;
-    req_phase.qos = req_phase.txn_id % 15;
-    req_phase.order = ARM::CHI::ORDER_NO_ORDER;
+    req_phase.order = ARM::CHI::ORDER_REQUEST_ACCEPTED;
+    req_phase.qos = 15;
 
     req_payload.address = address;
     req_payload.size = size;
@@ -160,25 +153,8 @@ void CHITrafficGenerator::add_payload(
     channels[ARM::CHI::CHANNEL_REQ].tx_queue.emplace_back(req_payload, req_phase);
 
     req_payload.unref();
+
 }
 
-void CHITrafficGenerator::add_payload(
-    const ARM::CHI::ReqOpcode req_opcode, const uint64_t address, const ARM::CHI::Size size, const ARM::CHI::Order order)
-{
-    ARM::CHI::Payload& req_payload = *ARM::CHI::Payload::new_payload();
-    ARM::CHI::Phase req_phase;
-
-    req_phase.tgt_id = 2;
-    req_phase.src_id = 1;
-    req_phase.txn_id = txn_id++;
-    req_phase.req_opcode = req_opcode;
-    req_phase.order = order;
-    req_phase.qos = req_phase.txn_id % 15;
-    req_payload.address = address;
-    req_payload.size = size;
-    req_payload.mem_attr = ARM::CHI::MEM_ATTR_NORMAL_WB_A;
-
-    channels[ARM::CHI::CHANNEL_REQ].tx_queue.emplace_back(req_payload, req_phase);
-
-    req_payload.unref();
-}
+    } // namespace Port
+} // namespace dmu

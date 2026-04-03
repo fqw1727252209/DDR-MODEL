@@ -3,8 +3,13 @@
 #include <iostream>
 #include <iomanip>
 
-#include "CHIPort/CHIMonitor.h"
+#include "CHIPort/CHIMonitor.hh"
 #include "CHIPort/CHIUtilities.h"
+
+
+
+namespace dmu{
+    namespace Port{
 
 tlm::tlm_sync_enum CHIMonitor::nb_transport_fw(ARM::CHI::Payload& payload, ARM::CHI::Phase& phase)
 {
@@ -265,10 +270,10 @@ void CHIMonitor::print_payload(const bool fw, const ARM::CHI::Payload& payload, 
 {
     std::ostringstream stream;
 
-    stream << sc_core::sc_time_stamp() << ' ' << name() << " : " << channel_to_string(phase.channel);
+    stream << sc_core::sc_time_stamp() << ' ' << name() << ": " << channel_to_string(phase.channel);
 
     if (phase.lcrd) {
-        stream << (fw ? " ---->  " : "   <----");
+        stream << (fw ? " ---->   " : "    <----");
         stream << " link-credit";
     } else {
         bool print_endpoints = true;
@@ -313,7 +318,6 @@ void CHIMonitor::print_payload(const bool fw, const ARM::CHI::Payload& payload, 
             // Basic transaction information, valid from the request onwards
 
             stream << " TxnID:" << std::setw(3) << std::setfill('0') << std::hex << phase.txn_id;
-            stream << " QoS:" << std::setw(3) << std::setfill('0') << std::dec << static_cast<unsigned>(phase.qos);
             stream << " @" << std::setw(12) << std::setfill('0') << std::hex << payload.address << std::dec << ' ';
 
             stream << std::setw(3) << std::setfill(' ') << ((1 << payload.size) * 8) << "-bit";
@@ -356,3 +360,5 @@ CHIMonitor::CHIMonitor(const sc_core::sc_module_name& name, unsigned data_width_
     target("target", *this, &CHIMonitor::nb_transport_fw, ARM::TLM::PROTOCOL_CHI_E, data_width_bits),
     initiator("initiator", *this, &CHIMonitor::nb_transport_bw, ARM::TLM::PROTOCOL_CHI_E, data_width_bits)
 {}
+    }//
+}//

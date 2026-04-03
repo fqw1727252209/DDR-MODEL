@@ -1,6 +1,7 @@
 #ifndef ARM_CHI_UTILITIES_H
 #define ARM_CHI_UTILITIES_H
 
+#include "sysc/kernel/sc_time.h"
 #include <ARM/TLM/arm_chi_payload.h>
 #include <ARM/TLM/arm_chi_phase.h>
 
@@ -8,14 +9,17 @@
 #include <deque>
 #include <vector>
 
+namespace dmu{
+    namespace Port{
+
 /* Calculate a mask of bytes that may be transferred in the transaction. */
 inline uint64_t transaction_valid_bytes_mask(const ARM::CHI::Payload& payload)
 {
     const unsigned size_bytes = 1 << payload.size;
     const uint64_t align_mask = size_bytes - 1;
 
-    const unsigned first_byte =
-        ((payload.mem_attr & ARM::CHI::MEM_ATTR_DEVICE) != 0 ? payload.address : payload.address & ~align_mask) &
+    const unsigned first_byte = 
+        ((payload.mem_attr & ARM::CHI::MEM_ATTR_DEVICE) != 0 ? payload.address : payload.address & ~align_mask) & 
         0x3f;
     const unsigned last_byte = (payload.address & 0x3f) | align_mask;
 
@@ -51,7 +55,7 @@ inline std::vector<uint8_t> transaction_data_ids(const ARM::CHI::Payload& payloa
 }
 
 /* Package up a payload and associated phase, managing the ref counting on the payload. */
-struct CHIFlit
+struct CHIFlit 
 {
     CHIFlit(ARM::CHI::Payload& payload_, const ARM::CHI::Phase& phase_) : payload(payload_), phase(phase_)
     {
@@ -60,8 +64,11 @@ struct CHIFlit
 
     ~CHIFlit() { payload.unref(); }
 
-    CHIFlit(const CHIFlit& other) : CHIFlit(other.payload, other.phase) { }
-    CHIFlit& operator=(const CHIFlit&) = delete; // the default copy value operation forbidden
+    CHIFlit(const CHIFlit& other) : CHIFlit(other.payload, other.phase) {m_entering_port_time = other.m_entering_port_time;}
+    CHIFlit& operator=(const CHIFlit&) = delete;
+
+    inline void RecordEnteringPortTime(const sc_core::sc_time& entering_port_time) { m_entering_port_time = entering_port_time; }
+    sc_core::sc_time m_entering_port_time;
 
     ARM::CHI::Payload& payload;
     ARM::CHI::Phase phase;
@@ -69,7 +76,7 @@ struct CHIFlit
 
 static const unsigned CHI_NUM_CHANNELS = 4;
 
-/* Maximum number of credits to issue. The CHI architecture limits this to 15. */
+/* Maximum number of credits to issue.  The CHI architecture limits this to 15. */
 static const unsigned CHI_MAX_LINK_CREDITS = 15;
 
 struct CHIChannelState
@@ -80,38 +87,39 @@ struct CHIChannelState
     /* Link credits issued to us by our peer that we can use. */
     uint8_t tx_credits_available = 0;
 
-    bool rx_credit_increment{false};
-
-    /* If >= 0, link credits we can issue to our peer for them to use. If < 0, channel disabled. */
+    /* If >= 0, link credits we can issue to our peer for them to use.  If < 0, channel disabled. */
     int8_t rx_credits_available = -1;
+   // bool rx_credit_increment = false;
 
-    void rx_credits_update()
-    {
-        rx_credits_available = rx_credit_increment ? ++rx_credits_available : rx_credits_available;
-        rx_credit_increment = false;
-    }
+    // void rx_credits_update()
+    // {
+    //     if(rx_credit_increment)
+    //         rx_credits_available++;
+    //     rx_credit_increment = false;
+    // }
+
     bool receive_flit(ARM::CHI::Payload& payload, ARM::CHI::Phase& phase)
     {
-
         if (phase.lcrd)
         {
-            tx_credits_available++; // if this is the credit return, do the credit incresement
-        } else
+            tx_credits_available++;
+        }else
         {
-            if (rx_credits_available < 0) // if less than zero, which means that the RX has send all credit to upstream and wait for flit sent to it; this value will set to MAX_CREDITS
+            if (rx_credits_available < 0)
                 return false;
-            // rx_credits_available++;
-            rx_credit_increment = true;
-            rx_queue.emplace_back(payload, phase); // receive the flit
+
+            //rx_credit_increment = true;
+            rx_credits_available++;
+            rx_queue.emplace_back(payload, phase);
         }
-        
+
         return true;
     }
 
     template <typename F>
     void send_flits(const ARM::CHI::Channel channel, F nb_transporter)
     {
-        if (rx_credits_available > 0)//do the credit return to the upstream, for the upstream can continue to send flit using the returned flit
+        if (rx_credits_available > 0)
         {
             ARM::CHI::Payload* const payload = ARM::CHI::Payload::get_dummy();
             ARM::CHI::Phase phase;
@@ -123,7 +131,7 @@ struct CHIChannelState
             nb_transporter(*payload, phase);
         }
 
-        if (!tx_queue.empty() && tx_credits_available > 0) // if own enough credit and has pengding flit, do the flit transfer
+        if (!tx_queue.empty() && tx_credits_available > 0)
         {
             CHIFlit tx_flit = tx_queue.front();
             tx_queue.pop_front();
@@ -133,5 +141,8 @@ struct CHIChannelState
         }
     }
 };
+
+    } // 
+} // 
 
 #endif // ARM_CHI_UTILITIES_H

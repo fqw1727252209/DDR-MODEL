@@ -3,7 +3,12 @@
 
 #include <ARM/TLM/arm_chi.h>
 
-#include "CHIUtilities.h"
+#include "CHIPort/CHIUtilities.h"
+
+
+namespace dmu{
+    namespace Port{
+
 
 class CHITrafficGenerator : public sc_core::sc_module
 {
@@ -26,10 +31,14 @@ public:
 
     /* Add a payload to the traffic queue. */
     void add_payload(ARM::CHI::ReqOpcode req_opcode, uint64_t address, ARM::CHI::Size size);
-    void add_payload(ARM::CHI::ReqOpcode req_opcode, uint64_t address, ARM::CHI::Size size, ARM::CHI::Order order);
+
     ARM::CHI::SimpleInitiatorSocket<CHITrafficGenerator> initiator;
 
     sc_core::sc_in<bool> clock;
 };
+
+
+    }
+}
 
 #endif // ARM_CHI_TRAFFIC_GENERATOR_H
