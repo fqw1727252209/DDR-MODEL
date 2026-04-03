@@ -1,6 +1,8 @@
-# HJ控制器刷新策略模拟器设计优化文档 v0.2
+# HJ控制器刷新策略模拟器设计优化文档 v0.3
 
-**日期**：2026-03-16
+**日期**：2026-04-03
+
+> **注**：v0.3版已合入最新技术评审意见，确认了 Phase 1 缩减范围（不考虑 Burst 上限）及 Phase 2 RFM 的仲裁策略。
 
 ---
 
@@ -201,7 +203,7 @@ RTL 仿真（VCS/Questa）             模拟器（SystemC ESL）
 
 ### 功能 2：Postpone 推迟与 Critical 验证
 
-**验证目标**：推迟机制生效，Critical 在准确的待发数量限制下触发-->(==**评审：**一定要有请求才会推迟，AC Timing约束==)
+**验证目标**：推迟机制生效，Critical 在准确的待发数量限制下触发。（**注意：** 必须要有实际刷新请求时才会引发推迟机制，且发送受限于 AC Timing 的约束）
 
 **RTL 观测信号**：
 - `cnt_postpone` 计数值
@@ -297,15 +299,17 @@ RTL 仿真（VCS/Questa）             模拟器（SystemC ESL）
 
 ### 单 tREFI 窗口 Burst 上限控制实现思路
 
-**问题背景**：为防止累积的推迟刷新一次性清库释放，DDR5 限制在一个 tREFI 窗口内最多发出 5 次刷新（通常是 1x模式的协议约束）。当前模拟器没有该上限，可能连续发出数十个 REFab。
+**问题背景**：为防止累积的推迟刷新一次性清库释放，DDR5 限制在一个 tREFI 窗口内最多发出 5 次刷新（通常是 1x模式的协议约束）。当前模拟器没有该上限，可能导致累积的 REFab 连续发出而引发带宽度下降，因此必须实施该控制。
 **代码修改点**：
-1. **数据结构 (`RefreshMachine.hh`)**：在类内新增一个定长滑动窗口队列，如 `std::deque<uint64_t> recent_ref_timestamps`，用于记录最近发送 REFab 的绝对时钟戳。
-2. **发射记录 (`RefreshMachine::UpdateOnRefAb()`)**：每当调度器成功发射一笔 REFab，将 `sc_time_stamp().value()` push 进队列。若队列长度超过 5，则 pop 掉最早的一项。
-3. **发射限制逻辑 (`RefreshMachine::CanIssueRefresh()`)**：-->（==**评审：这种可以不考虑**==）
-   在向 `CmdSelect` 模块请求仲裁前，增加断言：
+1. **数据结构 (`RefreshMachine.hh`)**：
+   在类内新增一个定长队列或滑动窗口，如 `std::deque<uint64_t> recent_ref_timestamps`，用于记录最近发送 REFab 的绝对时钟拍数。
+2. **发射记录 (`RefreshMachine::UpdateOnRefAb()`)**：
+   每当调度器成功发射一笔 REFab，将当前的 `sc_time_stamp().value()` push 进队列。如果队列长度超过了限制值（如 5），则 pop 掉最早的一项时间戳记录。
+3. **发射限制逻辑 (`RefreshMachine::CanIssueRefresh()`)**：
+   在向 `CmdSelect` 模块请求仲裁前，增加窗口阈值断言：
    `if (recent_ref_timestamps.size() == 5)`
-   检查 `current_time - recent_ref_timestamps.front()` 是否 `< tREFI_duration`。
-   如果小于，说明一个 `tREFI` 窗口内已发满 5 次。此时返回 `false` 阻塞此次发出请求；必须等时间流逝、滑动窗口移出最早一次记录后才放行。
+   判断 `current_time - recent_ref_timestamps.front()` 是否 `< tREFI_duration`。
+   如果小于该时长，代表一个 `tREFI` 窗口内已经饱和发射了 5 次。此时强制返回 `false` 阻塞下一次发包请求，直到经过足够时钟周期使得记录移出窗口后方可继续放行。
 
 ---
 
@@ -332,14 +336,15 @@ RTL 仿真（VCS/Questa）             模拟器（SystemC ESL）
 1. **统计层 (`BankSlice.hh/cpp`)**：
    每个 Bank 新增一个计数器 `uint32_t act_counter`（即 RAA 计数）。每次 `Evaluate()` 中成功发出 ACT 命令时，`act_counter++`。
 
-   【评审】：单独的通道，RFM主动产生
-
-2. **触发机制 (`BankSlice.cpp` / 新增 `RfmManager`)**：
+2. **独立通道触发机制 (新增 `RfmManager`)**：
    - 配置项中增加 `RAA_Threshold` (如 MR24 配置的乘积等)。
-   - 当 `act_counter >= RAA_Threshold` 时，当前 Bank 拉高 `rfm_req` 标志位，并上报给 `Scheduler` 仲裁。
-   - RFM 请求被受理后，向该 Bank（或整个 Rank）插入 `RFM` 命令。
-   - 【评审】命令冲突的时候，如何仲裁<RFM和正常的REF？>  相当于分开记录RFM和正常REF，同时产生。如果满足RFM时序，并且同时有REF，优先发送RFM刷新---总结为：有RFM选择RFM，没RFM再考虑是否需要正常的REF（见控制器bsc_ref部分）
+   - **RFM 为独立通道**：当 `act_counter >= RAA_Threshold` 时，由硬件/模块主动产生并拉高独立的 `rfm_req` 请求。
 
-3. **时序约束 (`SdramConstraint.cpp`)**：
-   RFM 的执行时间类似于一个稍微缩短的刷新命令，需要加入 `tRFM`（基于 `tRFCab` 或相似值）的死区时间控制，发完后将 `act_counter` 清零。
+3. **命令仲裁策略 (`Scheduler.cpp` / `CmdSelect.cpp`)**：
+   - 调度器需要**分开记录并同时维护** RFM 请求和普通的 REF 刷新请求。
+   - **优先发送原则**：若仲裁时产生冲突，**优先发送 RFM**（前提是当前满足 RFM 的 AC 时序约束）。
+   - **退化备选原则**：如果没有待发的 RFM 请求（或者相关时序被阻挡），调度器再考虑仲裁并发射普通的 REFab 或 REFsb 刷新。
+
+4. **时序约束 (`SdramConstraint.cpp`)**：
+   RFM 的执行时间类似于一个稍微缩短的刷新命令，需要加入 `tRFM` 的死区时间控制，发完后必须将对应范围的 `act_counter` 清零。
 
