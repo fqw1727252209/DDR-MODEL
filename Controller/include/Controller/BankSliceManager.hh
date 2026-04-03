@@ -162,7 +162,7 @@ class BankSliceManager{
         bool IsWrNttCmdPageHitExpired();
 
 
-        bool IsReadyCommandsEmpty(GlobalRdwrState global_rdwr_mode);
+        bool IsReadyCommandsEmpty(GlobalRdWrState global_rdwr_mode);
 
         sc_core::sc_time GetNextCommandTriggerTime(); // if the cmd is not zero, then should get the last cmd sending time;
 
