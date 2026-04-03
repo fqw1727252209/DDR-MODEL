@@ -173,12 +173,12 @@ InputProcess::AcceptRequest(tlm::tlm_generic_payload& trans)
             InputProcessReq rmw_rd_trans = InputProcessReq(*rmw_rd_childTrans);
             rmw_rd_trans.sdram_addr = sdram_address;
             rmw_rd_trans.cam_index = AllocateRdCamIndex();
-            rmw_rd_trans.SetCmdType(CmdType::RMW);
+            rmw_rd_trans.setCmdType(CmdType::RMW);
 
             InputProcessReq rmw_wr_trans = InputProcessReq(*rmw_wr_childTrans);
             rmw_wr_trans.sdram_addr = sdram_address;
             rmw_wr_trans.cam_index = AllocateWrCamIndex();
-            rmw_rd_trans.SetCmdType(CmdType::RMW);
+            rmw_wr_trans.setCmdType(CmdType::RMW);
 
             rmw_rd_trans.rmw_related_cam_index = rmw_wr_trans.cam_index;
             rmw_wr_trans.rmw_related_cam_index = rmw_rd_trans.cam_index;

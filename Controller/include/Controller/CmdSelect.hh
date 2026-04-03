@@ -31,7 +31,7 @@ class CmdSelect
         : _config(config)
         , _bank_slice_manager(bank_slice_manager)
         {};
-        CommandTuple::Type SelectCommand(const ReadyCommands& ready_commands, GlobalRdwrState global_rdwr_state);
+        CommandTuple::Type SelectCommand(const ReadyCommands& ready_commands, GlobalRdWrState global_rdwr_state);
     private:
         BankSliceManager& _bank_slice_manager;
         const Configure& _config;
