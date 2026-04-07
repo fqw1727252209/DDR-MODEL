@@ -30,7 +30,7 @@ void add_payloads_to_tg(CHITrafficGenerator& tg)
 int sc_main(int, char**)
 {
 
-    dmu::LoadConfigure load_configure("../../ConfigureFile", "3ds_map2.json");
+    dmu::LoadConfigure load_configure("../ConfigureFile", "3ds_map2.json");
     load_configure.ParseJson();
     load_configure.ParseConfig();
     dmu::Configure configure(load_configure);

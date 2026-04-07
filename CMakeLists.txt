@@ -9,7 +9,7 @@ set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 添加构建测试的选项
-option(BUILD_TEST "Build test files" OFF)
+option(BUILD_TEST "Build test files" ON)
 
 # 设置third_party路径
 set(THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
@@ -32,7 +32,9 @@ include_directories(
 
 # 添加子目录 - 包含third_party库
 add_subdirectory(third_party/systemc-2.3.3)
+add_subdirectory(third_party/rapidjson)
 add_subdirectory(third_party/amba_tlm)
+add_subdirectory(Common)
 add_subdirectory(CHIPort)
 add_subdirectory(Controller)
 

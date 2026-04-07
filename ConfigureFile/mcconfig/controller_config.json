@@ -46,7 +46,7 @@
         "HPR_CMD_RUNLEN": 50,
         "LPR_CMD_RUNLEN": 5,
         "TPW_CMD_RUNLEN": 50,
-        "MAX_RW_BEFORE_SWITCH": 8,
+        "Max_RW_BEFORE_SWITCH": 8,
         "OPP_HIT_CNT": 5,
         "MODE_SWITCH_POLICY": true,
         "WR_HIT_LIMIT_THRESHOLD": 255,
