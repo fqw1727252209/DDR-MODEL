@@ -239,7 +239,7 @@ void
 BankSlice::SelectRdNtt(CAM_INDEX rd_cam_index)
 {
     DPRINT_INFO(TOP_DEBUG,"BankSlice","update the rd ntt to the bsc: %d, with selected rd cam index: %d",m_bsc_index,rd_cam_index);
-    DPRINT_ASSERT(_ba_addr.real_ba == (_rd_cam->GetCamEntry(rd_cam_index)->sdram_addr.real_ba), "Bank Slice", "SelectWrNtt Func: the selected rd cam index: %d, the real ba of the cam entry: %d, the real ba of the bank slice: %d",rd_cam_index,(_rd_cam->GetCamEntry(rd_cam_index)->sdram_addr.real_ba), ba_addr.real_ba);
+    DPRINT_ASSERT(_ba_addr.real_ba == (_rd_cam->GetCamEntry(rd_cam_index)->sdram_addr.real_ba), "Bank Slice", "SelectWrNtt Func: the selected rd cam index: %d, the real ba of the cam entry: %d, the real ba of the bank slice: %d",rd_cam_index,(_rd_cam->GetCamEntry(rd_cam_index)->sdram_addr.real_ba), _ba_addr.real_ba);
     candidate_rd_cmd.cam_index = rd_cam_index;
     candidate_rd_cmd.is_valid = true;
 }
