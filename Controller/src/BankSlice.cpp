@@ -42,6 +42,12 @@ BankSlice::Update(const CommandTuple::Type& sending_cmd)
         case Command::ACT:
             /* code */
             {
+                act_counter++;
+                if (act_counter >= raa_threshold) {
+                    rfm_req = true;
+                    std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] act_counter=" << act_counter << " >= RAA_THRESHOLD=" << raa_threshold << ", RFM requested for Bank(" << _ba_addr.real_ba << ")" << std::endl;
+                }
+                
                 page_info.is_open = true;
                 // page_info.open_page = ;
                 refresh_management_counter++;
@@ -102,10 +108,12 @@ BankSlice::Update(const CommandTuple::Type& sending_cmd)
         case Command::REFab:
         case Command::RFMab:
             ClearRefreshWaiting();
+            ClearRfmReq();
             break;
         case Command::REFsb:
         case Command::RFMsb:
             ClearRefreshWaiting();
+            ClearRfmReq();
             break;
         default:
             break;

@@ -1,4 +1,4 @@
-# HJ控制器刷新策略模拟器设计优化文档 v0.3
+# HJ控制器刷新策略模拟器设计优化方案 v0.3
 
 **日期**：2026-04-03
 
@@ -74,7 +74,7 @@ cnt_postpone 含义：已到期但还未发出的刷新请求数量
 推迟上限：cnt_postpone >= MaxPostpone → 进入 Critical 状态
 ```
 
-- **第四步：Critical 信号产生（强制刷新）先实现基本功能-->再实现强制刷新**
+- **第四步：Critical 信号产生（强制刷新）**
 
 以下任一条件满足，`ref_critical` 拉高：
 
@@ -147,12 +147,12 @@ Critical 刷新介入：
 | Critical 退出下限 | `CntPostponeLowTh` | **未实现**，直接降到0退出 | ❌ 有差距 |
 | BankSlice 阻塞协调 | `ref_critical` 信号线 | `is_refresh_waiting` 标志 | 等效 ✅ |
 | PRE 强制关页 | 调度器自动处理 | BankSlice Evaluate 中处理 | 等效 ✅ |
-| REFab 发出 | `u_cs_bsc_ref_gen` 时序判断 | `CmdSelect` 仲裁 | 等效 ✅ |
+| REFab 发出 | `u_cs_bsc_ref_gen` 时序判断 | `CmdSelect` 仲裁发送 | 等效 ✅ |
 | **Rank 交错（Stagger）** | `Rank${i}TrefiStartValue` | **未实现**，所有Rank同时触发 | ❌ 缺失 |
-| **tREFI 内 Burst 上限** | `inst_ref_burst_interval`（最多5次） | **未实现**，无上限 | ❌ 缺失 |
-| **REFsb（Same-Bank）** | 支持 `RefabEn=0` | **未实现** | ❌ 缺失 |
-| **FGR 2x 模式** | 支持 `RefMode=1` | **未实现**(目前应该有了，JSON配置，需要跑一下试试) | ❌ 缺失 |
-| **RFM（RAA 计数器）** | `inst_ref_rfm` | **未实现** | ❌ 缺失 |
+| **Burst 上限控制** | `inst_ref_burst_interval`（最多5次） | **未实现**，无上限 | ❌ 缺失 |
+| **REFsb（Same-Bank Refresh）** | 支持 `RefabEn=0` | **未实现** | ❌ 缺失 |
+| **FGR 2x 模式** | 支持 `RefMode=1` | **未实现** (可通过 JSON 配置扩展) | ❌ 缺失 |
+| **RFM（Refresh Management）** | `inst_ref_rfm` | **未实现** | ❌ 缺失 |
 | 温度补偿（MR4） | `inst_ref_rm` 监控 | **未实现** | ❌ 缺失 |
 
 ---
@@ -262,31 +262,31 @@ RTL 仿真（VCS/Questa）             模拟器（SystemC ESL）
 | 任务 | 涉及代码位置 | 工作量 | 验证指标 |
 |---|---|---|---|
 | **Rank 交错（Stagger）** | `RefreshMachine` 的构造及初值设定 | 0.5天 | 各 Rank 不在同一周期触发刷新 |
-| **Critical 退出下限** | `RefreshMachine`、`McConfig` 添加低阈值判断 | 0.5天 | 退出 Critical 的时机由目前直接消退改为依配置项 |
-| **Burst 上限(单tREFI)** | `RefreshMachineManager` 中增加滑动窗口/计数器 | 1天 | 保证 T=tREFI 时间段内发出的 Refresh 数量不超过5。 |
+| **Critical 退出滞回控制** | `RefreshMachine`、`McConfig` 添加低阈值判断 | 0.5天 | 退出 Critical 的时机由目前直接消退改为依配置项 |
+| **Burst 上限控制** | `RefreshMachineManager` 中增加滑动窗口/计数器 | 1天 | 保证单 tREFI 时间段内发出的刷新数量不超过 5 次 |
 
 ### Phase 2（功能扩展）
 
 | 任务 | 涉及代码位置 | 工作量 | 说明 |
 |---|---|---|---|
-| **REFsb 支持** | `RefreshMachine`, `BankSlice`, 时序基类 | 3天 | 减小阻塞粒度至每个 Bank Group 相同序号的 Bank |
-| **RFM 管理机制** | `BankSlice`, 新增模块 | 2天 | 累积 RAA 发送 RFM，解决行锤击（RowHammer）问题 |
+| **REFsb（Same-Bank Refresh）** | `RefreshMachine`, `BankSlice`, 时序基类 | 3天 | 减小阻塞粒度机制，过滤锁定非目标 Bank |
+| **RFM（Refresh Management）** | `BankSlice`, 新增模块 | 2天 | 累积 `act_counter` 并在达标后发出 RFM，防 RowHammer |
 
 ---
 
 ## Phase 1 核心功能 C++ 实现思路简述
 
-为了应对技术评审中对具体代码实现的提问，特补充 Phase 1 中三个核心优化任务的代码实现架构思路：
+为了应对技术评审中对具体代码实现的提问，特补充 Phase 1 中核心优化任务的代码实现架构思路：
 
 ### Rank 交错（Stagger）实现思路
 
-**问题背景**：目前模拟器所有 Rank 的 `tREFI` 计时器初始值均相同，导致多 Rank 系统会在同一时刻爆发刷新请求，瞬间锁死整个通道带宽（刷新风暴）。
+**问题背景**：目前模拟器所有 Rank 的 `tREFI` 计时器初始值均相同，导致多 Rank 系统会在同一时刻触发刷新请求，引起带宽突降。
 **代码修改点**：
 1. **配置层 (`ConfigureFile` / `McConfig.hh`)**：在 JSON 配置文件及 `McConfig` 结构体中，为每个 Rank 新增初始化偏移量配置字段（如 `uint32_t trefi_start_offset`）。
 2. **初始化层 (`RefreshMachine.cpp` 构造函数)**：在构建 `RefreshMachine` 时获取对应 Rank 的偏移值。
 3. **计时逻辑 (`RefreshMachine` timer)**：SystemC 中管理刷新的 primary event 第一回触发时间由 `start_time = tREFI` 改为 `start_time = tREFI + (offset * tCK)`，将多个 Rank 的刷新触发在时间轴上错开。
 
-### Critical 退出下限（Threshold）实现思路
+### Critical 退出滞回控制实现思路
 
 **问题背景**：当前模拟器逻辑是待发刷新必须清零（`pending_count == 0`）才退出 Critical 恢复读写。真实控制器允许配置退出下限来兼顾延时指标。
 **代码修改点**：
@@ -295,21 +295,22 @@ RTL 仿真（VCS/Questa）             模拟器（SystemC ESL）
    修改更新 `critical` 标志位的判定逻辑。
    *原代码类似*：`if (pending_count == 0) { is_critical = false; }`
    *修改为*：`if (pending_count <= config->ref_postpone_low_th) { is_critical = false; ClearRefreshWaiting(); }`
-3. **通知机制 (`BankSliceManager.cpp`)**：确保下限触发时，能及时下发信号唤醒被挂起的正在排队的读写命令。
+3. **通知机制 (`BankSliceManager.cpp`)**：确保下限触发时，能及时下发信号唤醒排队中的读写命令。
 
-### 单 tREFI 窗口 Burst 上限控制实现思路
+### Burst 上限控制实现思路
 
-**问题背景**：为防止累积的推迟刷新一次性清库释放，DDR5 限制在一个 tREFI 窗口内最多发出 5 次刷新（通常是 1x模式的协议约束）。当前模拟器没有该上限，可能导致累积的 REFab 连续发出而引发带宽度下降，因此必须实施该控制。
+**问题背景**：为防止累积的推迟刷新一次性连续释放，协议限制 1 个 $t_{REFI}$ 窗口内限制发出的刷新数：Normal 模式（1x）最多 5 次，FGR 模式（2x）最多 9 次。当前模拟器没有该上限，可能导致超出协议限制的连续发送，因此必须实施该控制。
 **代码修改点**：
 1. **数据结构 (`RefreshMachine.hh`)**：
-   在类内新增一个定长队列或滑动窗口，如 `std::deque<uint64_t> recent_ref_timestamps`，用于记录最近发送 REFab 的绝对时钟拍数。
+   在类内新增一个定长队列或滑动窗口，如 `std::deque<uint64_t> recent_ref_timestamps`，用于记录最近发送 REFab 的绝对时间戳。
 2. **发射记录 (`RefreshMachine::UpdateOnRefAb()`)**：
-   每当调度器成功发射一笔 REFab，将当前的 `sc_time_stamp().value()` push 进队列。如果队列长度超过了限制值（如 5），则 pop 掉最早的一项时间戳记录。
+   引入配置动态求值 `size_t burst_limit = (_configure.mem_spec->RefreshMode == 1) ? 9 : 5;`。
+   每当调度器成功发射一笔 REFab，将当前的时间值 push 进队列。如果队列长度超过 `burst_limit`，则 pop 掉最早的一项时间戳。
 3. **发射限制逻辑 (`RefreshMachine::CanIssueRefresh()`)**：
-   在向 `CmdSelect` 模块请求仲裁前，增加窗口阈值断言：
-   `if (recent_ref_timestamps.size() == 5)`
+   在向 `CmdSelect` 模块请求仲裁前，增加发送限制判断：
+   `if (recent_ref_timestamps.size() == burst_limit)`
    判断 `current_time - recent_ref_timestamps.front()` 是否 `< tREFI_duration`。
-   如果小于该时长，代表一个 `tREFI` 窗口内已经饱和发射了 5 次。此时强制返回 `false` 阻塞下一次发包请求，直到经过足够时钟周期使得记录移出窗口后方可继续放行。
+   如果小于该时长，代表一个 `tREFI` 窗口内已发生满额爆发满射。此时强制返回 `false` 暂停发包，直到滑动窗口移出该记录。
 
 ---
 
@@ -319,32 +320,31 @@ RTL 仿真（VCS/Questa）             模拟器（SystemC ESL）
 
 ### REFsb（Same-Bank Refresh）实现思路
 
-**问题背景**：DDR5 引入了 REFsb，允许只刷新各个 Bank Group 中具有相同 Bank Index 的 Bank，在此期间其他 Bank 依然可以响应读写，大大减少了刷新带来的阻塞。
+**问题背景**：DDR5 引入了 REFsb，允许仅刷新各个 Bank Group 中具有相同 Bank Index 的 Bank，在此期间其他 Bank 依然正常读写工作。
 **代码修改点**：
 1. **状态细化 (`BankSliceManager.hh`)**：
-   目前的 `is_refresh_waiting` 是 Rank 级别的。需要将其细化，改为维护一个 `bool refsb_waiting[BANK_GROUP_NUM][BANK_NUM]` 或按 Bank Index 锁定。
+   将 Rank 级别的 `is_refresh_waiting` 状态细化到 Bank Index。
 2. **命令调度 (`CmdSelect.cpp` / `Scheduler.cpp`)**：
    - 增加对 `REFsb` 命令的支持及仲裁权重。
    - 当发出 `REFsb` 后，时序约束模型 `SdramConstraint` 需分别处理同 Bank（受 `tRFCsb` 约束）和不同 Bank（不受约束）的允许访问时间。
 3. **策略选择 (`RefreshMachine.cpp`)**：
-   根据配置 `RefabEn == 0`（即不强制全 Bank 刷新），在生成刷新请求时，循环生成一组目标 Bank 序列（例如第一次刷 Bank0，下次刷 Bank1...），并通知 `BankSlice` 仅阻塞对应 Bank。
+   根据配置生成刷新请求，告知 `BankSlice` 仅对目标 Bank 添加过滤规则。 
+   > **注意避坑：** 此时下发的过滤标志必须是提取自地址译码的**本地组内索引 `bank`**（如 0, 1, 2...），而绝不能使用全局平铺绝对访问地址 `real_ba`（0 到 31）。因为 `REFsb` 在真实的物理芯片中，就是利用组内相同的 local_idx 实现并发跨 Bank Group 一致性刷新的。若错用了 `real_ba` 作唯一匹配过滤，将直接导致除单 Bank 外的同僚 Bank 失去刷新锁定保护，引发难以排查的数据一致性灾难。
 
-### RFM（Refresh Management / 防 RowHammer）实现思路
+### RFM（Refresh Management）实现思路
 
-**问题背景**：DDR5 为防范 RowHammer 攻击，引入了 RAA（Rolling Accumulated Act）计数器。当一个 Bank 内的 Activate 次数超过阈值时，需要硬件自动发出 RFM 命令来刷新相邻的被害行。
+**问题背景**：频繁 Activate 同一行会导致相邻行数据丢失（RowHammer）。当一个 Bank 内的 Activate 次数超过阈值时，需主动发出 RFM 命令来刷新相邻受害行。
 **代码修改点**：
 1. **统计层 (`BankSlice.hh/cpp`)**：
-   每个 Bank 新增一个计数器 `uint32_t act_counter`（即 RAA 计数）。每次 `Evaluate()` 中成功发出 ACT 命令时，`act_counter++`。
+   每个 Bank 新增计数器 `uint32_t act_counter`。每次成功发出 ACT 命令时，累加此计数。
 
 2. **独立通道触发机制 (新增 `RfmManager`)**：
-   - 配置项中增加 `RAA_Threshold` (如 MR24 配置的乘积等)。
-   - **RFM 为独立通道**：当 `act_counter >= RAA_Threshold` 时，由硬件/模块主动产生并拉高独立的 `rfm_req` 请求。
+   - 配置项中增加 `RAA_Threshold` 阈值。
+   - 当 `act_counter >= RAA_Threshold` 时，由模块主动拉高 `rfm_req` 请求标志。
 
 3. **命令仲裁策略 (`Scheduler.cpp` / `CmdSelect.cpp`)**：
-   - 调度器需要**分开记录并同时维护** RFM 请求和普通的 REF 刷新请求。
-   - **优先发送原则**：若仲裁时产生冲突，**优先发送 RFM**（前提是当前满足 RFM 的 AC 时序约束）。
-   - **退化备选原则**：如果没有待发的 RFM 请求（或者相关时序被阻挡），调度器再考虑仲裁并发射普通的 REFab 或 REFsb 刷新。
+   - **优先发送原则**：若产生冲突，优先考虑发送 RFM。
+   - **退化备选原则**：如果没有待发的 RFM 请求（或者相关时序被阻挡），调度器再考虑发射普通的 REF 刷新。
 
 4. **时序约束 (`SdramConstraint.cpp`)**：
-   RFM 的执行时间类似于一个稍微缩短的刷新命令，需要加入 `tRFM` 的死区时间控制，发完后必须将对应范围的 `act_counter` 清零。
-
+   需要加入对应的死区时间控制，发完后将对应范围的 `act_counter` 清零。
