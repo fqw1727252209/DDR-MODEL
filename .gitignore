@@ -21,7 +21,8 @@ out/
 *.exe
 *.out
 
-# Logs (keep logs directory but ignore log files)
+# Logs
+logs/
 build/logs/*.log
 
 # CMake generated files

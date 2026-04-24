@@ -25,7 +25,10 @@ class RefreshMachine{
         , cid(rank_id % config.mem_spec->NumOfLogicalRanksPerPhysicalRank)
         , _bank_slice_manager(bank_slice_manager)
         , _configure(config)
-        , post_pone_threshold(config.controller_config->REFRESH_PENDING_THRESHOLD)
+        , post_pone_threshold(
+            (config.mem_spec->RefMode == RefModeTypeDDR5::FGR)
+                ? config.controller_config->REFRESH_PENDING_THRESHOLD_FGR  // MaxPostpone2x
+                : config.controller_config->REFRESH_PENDING_THRESHOLD)    // MaxPostpone1x
         , post_pone_low_threshold(config.controller_config->POSTPONE_LOW_THRESHOLD_ALL_BANK)
         {
             unsigned temp_multiplier = config.controller_config->MR4_TEMP_MULTIPLIER;
@@ -40,9 +43,12 @@ class RefreshMachine{
             if(config.controller_config->REFRESH_ENABLE)
             {
                 if (config.controller_config->REF_STAGGER_ENABLE) {
-                    sc_core::sc_time stagger_step = current_trefi / config.mem_spec->TotalNumOfLogicalRanks;
-                    next_refresh_trigger_time = current_trefi + stagger_step * rank_id;
-                    std::cout << "[RefreshMachine Init] RankId: " << rank_id << " NextTriggerTime: " << next_refresh_trigger_time << std::endl;
+                    // RTL 对齐：读取 RANK_TREFI_START_VALUES 数组，每个 Rank 独立配置偏移（对应 Rank${i}TrefiStartValue 寄存器）
+                    const auto& start_values = config.controller_config->RANK_TREFI_START_VALUES;
+                    double offset_ns = (rank_id < start_values.size()) ? start_values[rank_id]
+                                     : (current_trefi.to_seconds() * 1e9 / config.mem_spec->TotalNumOfLogicalRanks * rank_id);
+                    next_refresh_trigger_time = current_trefi + sc_core::sc_time(offset_ns, sc_core::SC_NS);
+                    std::cout << "[RefreshMachine Init] RankId: " << rank_id << " StaggerOffset: " << offset_ns << " ns NextTriggerTime: " << next_refresh_trigger_time << std::endl;
                 } else {
                     next_refresh_trigger_time = current_trefi;
                     std::cout << "[RefreshMachine Init] RankId: " << rank_id << " NextTriggerTime: " << next_refresh_trigger_time << std::endl;
@@ -145,6 +151,16 @@ class RefreshMachine{
             }
             if(refresh_pending_count > 0)
             {
+                // H: 协议合规检查——连续两次刷新间隔不得超过 5×tREFI（JEDEC 4.13.6）
+                if (!is_critical && last_ref_sent_time != sc_core::SC_ZERO_TIME) {
+                    sc_core::sc_time gap = sc_core::sc_time_stamp() - last_ref_sent_time;
+                    if (gap > current_trefi * 5) {
+                        is_critical = true;
+                        std::cout << "@" << sc_core::sc_time_stamp() << ": [JEDEC] Refresh gap " << gap
+                                  << " exceeds 5*tREFI=" << current_trefi * 5 << ", Critical Enter (protocol compliance)!" << std::endl;
+                    }
+                }
+
                 if(refresh_pending_count >= post_pone_threshold && !is_critical) {
                     is_critical = true;
                     std::cout << "@" << sc_core::sc_time_stamp() << ": RefreshPendingCount: " << refresh_pending_count << ", Critical Enter! Lock system." << std::endl;
@@ -162,6 +178,11 @@ class RefreshMachine{
                 else
                 {
                     if(is_critical)
+                    {
+                        SetBankInRefreshWaiting();
+                    }
+                    // A: 推测性刷新（Speculative Refresh）——系统空闲时主动关页发刷新
+                    else if (IsSystemIdle())
                     {
                         SetBankInRefreshWaiting();
                     }
@@ -209,6 +230,7 @@ class RefreshMachine{
                 }
 
                 std::cout << "@" << sc_core::sc_time_stamp() << ": Send " << (update_cmd == Command::REFab ? "REFab" : "REFsb") << std::endl;
+                last_ref_sent_time = sc_core::sc_time_stamp(); // H: 记录用于 5×tREFI 合规检查
 
                 recent_ref_timestamps.push_back(sc_core::sc_time_stamp());
                 size_t burst_limit = (_configure.mem_spec->RefMode == RefModeTypeDDR5::FGR) ? 9 : 5;
@@ -222,6 +244,18 @@ class RefreshMachine{
                 if(refresh_pending_count <= post_pone_low_threshold && is_critical) {
                     is_critical = false;
                     std::cout << "@" << sc_core::sc_time_stamp() << ": RefreshPendingCount: " << refresh_pending_count << ", FreeRefreshCritical!" << std::endl;
+                }
+
+                // RTL 对齐：普通 REF 发出后，对 rank 内所有 bank 触发 RAADEC 退火（cnt_raa -= RAADEC）
+                {
+                    auto ba2bsc_index_table = _bank_slice_manager.GetBa2BscTable();
+                    auto bank_slice_map = _bank_slice_manager.GetBankSliceMap();
+                    unsigned raadec = _configure.controller_config->RAADEC;
+                    for (auto bank_id : rank_banks) {
+                        if (ba2bsc_index_table->find(bank_id) == ba2bsc_index_table->end()) continue;
+                        auto bsc_index = ba2bsc_index_table->at(bank_id);
+                        bank_slice_map->at(bsc_index)->DecreaseRaa(raadec);
+                    }
                 }
 
                 if(is_critical)
@@ -361,6 +395,25 @@ class RefreshMachine{
         unsigned current_refsb_ba{0};
 
         std::deque<sc_core::sc_time> recent_ref_timestamps;
+
+        // H: 记录上一次实际发出 REF 的时间戳，用于 5×tREFI 合规检查
+        sc_core::sc_time last_ref_sent_time{sc_core::SC_ZERO_TIME};
+
+        // A: 推测性刷新——检测系统是否空闲（无已分配的 BSC 正在处理交易）
+        bool IsSystemIdle() const {
+            auto allocated_bsc = _bank_slice_manager.GetAllocatedBscSet();
+            if (allocated_bsc.empty()) return true;
+            auto bank_slice_map = _bank_slice_manager.GetBankSliceMap();
+            for (auto bsc_index : allocated_bsc) {
+                auto bs = bank_slice_map->at(bsc_index).get();
+                // 只要有任何 BSC 还有有效的读写命令待发，就不算空闲
+                if (bs->IsRdCmdAvail() || bs->IsWrCmdAvail() ||
+                    bs->IsRdRowCmdAvail() || bs->IsWrRowCmdAvail()) {
+                    return false;
+                }
+            }
+            return true;
+        }
 };
 
     } // namespace Controller

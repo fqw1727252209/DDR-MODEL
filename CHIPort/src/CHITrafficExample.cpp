@@ -27,6 +27,14 @@ void add_payloads_to_tg(CHITrafficGenerator& tg)
     tg.add_payload(ARM::CHI::REQ_OPCODE_WRITE_NO_SNP_FULL, 0x00001000, ARM::CHI::SIZE_64);
 }
 
+
+void heartbeat() {
+    while (true) {
+        sc_core::wait(100, sc_core::SC_NS);
+        // heartbeat keeps events active
+    }
+}
+
 int sc_main(int, char**)
 {
 
@@ -59,8 +67,10 @@ int sc_main(int, char**)
     port.iSocket.bind(uif.target_socket);
 
     add_payloads_to_tg(tg);
+    sc_core::sc_spawn(&heartbeat);
 
-    sc_core::sc_start(2000, sc_core::SC_NS);
+
+    sc_core::sc_start(30000, sc_core::SC_NS);
 
     ARM::CHI::Payload::debug_payload_pool(std::cout);
 

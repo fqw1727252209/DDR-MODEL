@@ -50,7 +50,8 @@ struct CHILink {
     return true;
   }
 
-  inline bool has_credits() {
+  inline bool has_credits() 
+  {
     return rx_credit_sent_upstream + rx_queue.size() < rx_credits_available;
   }
 

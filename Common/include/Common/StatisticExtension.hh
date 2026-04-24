@@ -63,11 +63,11 @@ class StatisticExtension: public tlm::tlm_extension<StatisticExtension>
         inline sc_core::sc_time GetOutCamTime() const { return m_leaveing_cam_time; }
         inline const std::vector<std::pair<sc_core::sc_time, DramCommand>>& GetCmdTimeVec() const { return m_cmd_time_vec; }
 
-        // 新增数据传输时间相关的getter和setter
-        inline sc_core::sc_time GetUifDataBeginTime() const { return m_uif_data_begin_time; }
-        inline sc_core::sc_time GetUifDataEndTime() const { return m_uif_data_end_time; }
-        inline void RecordUifDataBeginTime(sc_core::sc_time time) { m_uif_data_begin_time = time; }
-        inline void RecordUifDataEndTime(sc_core::sc_time time) { m_uif_data_end_time = time; }
+        // 新增数据传输相关时间的getter和setter
+        inline sc_core::sc_time GetUiFDataBeginTime() const { return m_uif_data_begin_time; }
+        inline sc_core::sc_time GetUiFDataEndTime() const { return m_uif_data_end_time; }
+        inline void RecordUiFDataBeginTime(sc_core::sc_time time) { m_uif_data_begin_time = time; }
+        inline void RecordUiFDataEndTime(sc_core::sc_time time) { m_uif_data_end_time = time; }
 
         inline sc_core::sc_time GetDfiDataBeginTime() const { return m_dfi_data_begin_time; }
         inline sc_core::sc_time GetDfiDataEndTime() const { return m_dfi_data_end_time; }

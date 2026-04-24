@@ -146,8 +146,7 @@ class UifMaster: public sc_core::sc_module
                     SendTpwTrans();
                     DPRINT_INFO(false, name(),"Has Tpw Cmd Pending: %ld", tpw_queue.GetQueueSize());
                 }
-                else
-                {
+                else{
                     // DPRINT_INFO(TOP_DEBUG,name()," No Trans Can be Sent in This Cycle");
                 }
                 if(!stage_queue3.empty())
@@ -276,8 +275,7 @@ class UifMaster: public sc_core::sc_module
             else if(traffic_type == TrafficType::Stream_Copy)
             {
                 unsigned trace_length{10240}; // stream copy
-                while (i < trace_length)
-                {
+                while (i < trace_length){
                     AddTrans(base_addr0 + i * stride, CmdType::RD, 15, trans_id);
                     trans_id++;
                     AddTrans(base_addr0 + trace_length*stride*2 + i*stride, CmdType::WR, 15, trans_id);
@@ -289,8 +287,7 @@ class UifMaster: public sc_core::sc_module
             else if(traffic_type == TrafficType::Stream_Add)
             {
                 unsigned trace_length{10240}; // stream add
-                while (i < trace_length)
-                {
+                while (i < trace_length){
                     AddTrans(base_addr0 + i * stride, CmdType::RD, 15, trans_id);
                     trans_id++;
                     AddTrans(base_addr0 + trace_length*stride*1 + i*stride, CmdType::RD, 15, trans_id);
@@ -669,9 +666,9 @@ class UifMaster: public sc_core::sc_module
                             return HPR;
                         else if(IsLprHighPriority() && lpr_queue.HasCredit())
                             return LPR;
-                        else if(!hpr_queue.IsQueueEmpty() && hpr_queue.HasCredit() && !hpr_queue.IsQueueLocked())
+                        else if(!hpr_queue.IsQueueEmpty() && hpr_queue.HasCredit() && hpr_queue.IsQueueLocked())
                             return HPR;
-                        else if(!lpr_queue.IsQueueEmpty() && lpr_queue.HasCredit() && !lpr_queue.IsQueueLocked())
+                        else if(!lpr_queue.IsQueueEmpty() && lpr_queue.HasCredit() && lpr_queue.IsQueueLocked())
                             return LPR;
                         else if(!hpr_queue.IsQueueEmpty() && hpr_queue.HasCredit())
                             return HPR;
@@ -682,7 +679,7 @@ class UifMaster: public sc_core::sc_module
                     }
                     else if(state == WR)
                     {
-                        if(!tpw_queue.IsQueueEmpty() && tpw_queue.HasCredit() && !tpw_queue.IsQueueLocked())
+                        if(!tpw_queue.IsQueueEmpty() && tpw_queue.HasCredit() && tpw_queue.IsQueueLocked())
                             return TPW;
                         else if(!tpw_queue.IsQueueEmpty() && tpw_queue.HasCredit())
                             return TPW;
@@ -694,8 +691,8 @@ class UifMaster: public sc_core::sc_module
                 }
 
                 bool IsGprCritical() {
-                    if( (lpr_queue.HasExpiredCmd() && lpr_queue.HasCredit()) ||
-                        (tpw_queue.HasExpiredCmd() && lpr_queue.HasCredit()) )
+                    if( (lpr_queue.HasExpiredCmd() && !lpr_queue.HasCredit()) ||
+                        (tpw_queue.HasExpiredCmd() && !lpr_queue.HasCredit()) )
                     {
                         return true;
                     }
@@ -705,7 +702,7 @@ class UifMaster: public sc_core::sc_module
                 }
 
                 bool IsGpwCritical() {
-                    if(tpw_queue.HasExpiredCmd() && tpw_queue.HasCredit())
+                    if(tpw_queue.HasExpiredCmd() && !tpw_queue.HasCredit())
                     {
                         return true;
                     }

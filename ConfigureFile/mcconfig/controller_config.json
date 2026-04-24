@@ -60,12 +60,27 @@
     "RefreshConfig": {
         "REFRESH_ENABLE": true,
         "REFRESH_PENDING_THRESHOLD": 1,
-        "REFRESH_MANAGER_ENABLE": false,
-        "REFRESH_POSTPONE_ENABLE": false,
+        "REFRESH_PENDING_THRESHOLD_FGR": 1,
+        "REFRESH_MANAGER_ENABLE": true,
+        "REFRESH_POSTPONE_ENABLE": true,
         "POSTPONE_LOW_THRESHOLD_SAME_BANK": 0,
         "POSTPONE_LOW_THRESHOLD_ALL_BANK": 0,
         "ACT_MASK_NORMAL_REFRESH_ENABLE": false,
-        "CRITICAL_REFRESH_MASK_ACT_ENABLE": false
+        "CRITICAL_REFRESH_MASK_ACT_ENABLE": false,
+        "REFAB_ENABLE": false,
+        "RAA_THRESHOLD": 1,
+        "REF_STAGGER_ENABLE": true,
+        "MR4_TEMP_MULTIPLIER": 1,
+        "RANK_TREFI_START_VALUES": [
+            0,
+            10,
+            20,
+            30
+        ],
+        "RAAMULT": 1,
+        "RAADEC": 1,
+        "RAAIMT": 0,
+        "RAAMMT": 0
     },
     "PortConfig": {
         "RD_DAT_INFO_DEPTH": 128,

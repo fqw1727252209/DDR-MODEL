@@ -91,6 +91,7 @@ namespace dmu{
         {
             bool REFRESH_ENABLE;
             unsigned REFRESH_PENDING_THRESHOLD;
+            unsigned REFRESH_PENDING_THRESHOLD_FGR; // MaxPostpone2x：FGR 模式下独立阈值
             bool REFRESH_MANAGER_ENABLE;
             bool REFRESH_POSTPONE_ENABLE;
 
@@ -99,6 +100,20 @@ namespace dmu{
 
             bool ACT_MASK_NORMAL_REFRESH_ENABLE;
             bool CRITICAL_REFRESH_MASK_ACT_ENABLE;
+
+            bool REFAB_ENABLE;
+            unsigned RAA_THRESHOLD;
+            bool REF_STAGGER_ENABLE;
+            unsigned MR4_TEMP_MULTIPLIER;
+
+            // RTL 对齐：各 Rank 独立起始偏置（单位 ns，对应 Rank${i}TrefiStartValue）
+            std::vector<double> RANK_TREFI_START_VALUES;
+
+            // RTL 对齐：RFM 滑动窗口参数
+            unsigned RAAMULT;  // 每发一笔 ACT，RAA 计数器增加的权重
+            unsigned RAADEC;   // 每发一笔 REF，RAA 计数器减少的权重（对应 Raadec 寄存器）
+            unsigned RAAIMT;   // RAA 初级预警阈值，超过则建议发 RFM（0=不启用）
+            unsigned RAAMMT;   // RAA 最大阈值，超过则强制阻断 ACT（0=不启用）
         } RefreshConfig;
 
         struct PortConfigStruct{
@@ -193,12 +208,22 @@ namespace dmu{
             BEGIN_JSON_MAP(ControllerConfig::RefreshConfigStruct)
                 JSON_FIELD(bool, REFRESH_ENABLE)
                 JSON_FIELD(unsigned, REFRESH_PENDING_THRESHOLD)
+                JSON_FIELD(unsigned, REFRESH_PENDING_THRESHOLD_FGR)
                 JSON_FIELD(bool, REFRESH_MANAGER_ENABLE)
                 JSON_FIELD(bool, REFRESH_POSTPONE_ENABLE)
                 JSON_FIELD(unsigned, POSTPONE_LOW_THRESHOLD_SAME_BANK)
                 JSON_FIELD(unsigned, POSTPONE_LOW_THRESHOLD_ALL_BANK)
                 JSON_FIELD(bool, ACT_MASK_NORMAL_REFRESH_ENABLE)
                 JSON_FIELD(bool, CRITICAL_REFRESH_MASK_ACT_ENABLE)
+                JSON_FIELD(bool, REFAB_ENABLE)
+                JSON_FIELD(unsigned, RAA_THRESHOLD)
+                JSON_FIELD(bool, REF_STAGGER_ENABLE)
+                JSON_FIELD(unsigned, MR4_TEMP_MULTIPLIER)
+                JSON_FIELD(std::vector<double>, RANK_TREFI_START_VALUES)
+                JSON_FIELD(unsigned, RAAMULT)
+                JSON_FIELD(unsigned, RAADEC)
+                JSON_FIELD(unsigned, RAAIMT)
+                JSON_FIELD(unsigned, RAAMMT)
             END_JSON_MAP()
 
             BEGIN_JSON_MAP(ControllerConfig::PortConfigStruct)

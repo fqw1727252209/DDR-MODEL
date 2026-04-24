@@ -155,7 +155,7 @@ DDR5MemSpec3ds::DDR5MemSpec3ds(const DDR5MemConfig& mem_spec, const std::string&
         outFile << "  Total Banks:                " << NumOfTotalBanks << std::endl;
         outFile << "  Physical Ranks Per Ch:      " << NumOfPhysicalRanksPerChannel << std::endl;
         outFile << "  Logical Ranks Per Ch:       " << TotalNumOfLogicalRanks << std::endl;
-        outFile << "  Bank Groups Per L-Rank:     " << NumOfBnkgroupPerDevice << std::endl;
+        outFile << "  Bank Groups Per L-Rank:     " << NumOfBankGroupsPerDevice << std::endl;
         outFile << "  Banks Per L-Rank:           " << TotalNumOfBanksPerDevice << std::endl;
         outFile << "  Rows Per Bank:              " << NumOfRows << std::endl;
         outFile << "  Columns Per Row:            " << NumOfColumns << std::endl;

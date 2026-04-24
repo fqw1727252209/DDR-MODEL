@@ -42,10 +42,28 @@ BankSlice::Update(const CommandTuple::Type& sending_cmd)
         case Command::ACT:
             /* code */
             {
-                act_counter++;
-                if (act_counter >= raa_threshold) {
+                // RTL 对齐：每笔 ACT 按 RAAMULT 权重累加 cnt_raa
+                act_counter += raa_mult;
+
+                // RAAIMT 颈值（初级预警）：超过则设置 rfm_req，建议发 RFM
+                if (raa_imt > 0 && act_counter >= raa_imt && !rfm_req) {
                     rfm_req = true;
-                    std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] act_counter=" << act_counter << " >= RAA_THRESHOLD=" << raa_threshold << ", RFM requested for Bank(" << _ba_addr.real_ba << ")" << std::endl;
+                    std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] act_counter=" << act_counter
+                              << " >= RAAIMT=" << raa_imt << ", RFM requested (soft warn) for Bank(" << _ba_addr.real_ba << ")" << std::endl;
+                }
+
+                // RAA_THRESHOLD 颈值（主刻线）：普通单颈值模式，建议发 RFM
+                if (act_counter >= raa_threshold && !rfm_req) {
+                    rfm_req = true;
+                    std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] act_counter=" << act_counter
+                              << " >= RAA_THRESHOLD=" << raa_threshold << ", RFM requested for Bank(" << _ba_addr.real_ba << ")" << std::endl;
+                }
+
+                // RAAMMT 颈值（硬阴断）：超过则强制阻断该 Bank 发送新 ACT
+                if (raa_mmt > 0 && act_counter >= raa_mmt && !act_hard_blocked) {
+                    act_hard_blocked = true;
+                    std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] act_counter=" << act_counter
+                              << " >= RAAMMT=" << raa_mmt << ", ACT HARD BLOCKED for Bank(" << _ba_addr.real_ba << ")" << std::endl;
                 }
                 
                 page_info.is_open = true;

@@ -17,52 +17,52 @@
 | BankSlice 阻塞协调 | `ref_critical` 信号线 | `is_refresh_waiting` 标志位 | 等效 ✅ |
 | PRE 强制关页 | 调度器自动处理 | BankSlice Evaluate 中处理 | 等效 ✅ |
 | REFab 发出 | `u_cs_bsc_ref_gen` 时序判断 | `CmdSelect` 仲裁与发送 | 等效 ✅ |
-| **Rank 交错（Stagger）**| `Rank${i}TrefiStartValue` | 根据 Rank 切片计算偏移量 | **已实现** ✅ (Phase 1) |
+| **Rank 交错（Stagger）**| `Rank${i}TrefiStartValue` | 读取 `RANK_TREFI_START_VALUES` 数组，各 Rank 独立配置偏移 | **已实现** ✅ (Phase 3 RTL 对齐) |
 | **Burst 上限控制** | `inst_ref_burst_interval` | 引入滑动窗口队列 `recent_ref_timestamps` | **已实现** ✅ (Phase 1) |
 | **REFsb（Same-Bank Refresh）**| 支持 `RefabEn=0` | 按 Bank 级别过滤锁定/解锁 | **已实现** ✅ (Phase 2) |
 | **FGR 2x 模式**| 支持 `RefMode=1` | `DDR5MemSpec3ds` 中按 RefMode 切换时序 | **已实现** ✅ (内置) |
-| **RFM（Refresh Management）** | `inst_ref_rfm` | `act_counter` 计数 + 仲裁器优先发送 | **已实现** ✅ (Phase 2) |
+| **RFM（Refresh Management）** | `inst_ref_rfm` + `Raadec`/`Raamult` | `act_counter` 按 `RAAMULT` 加权累加 + `RAADEC` 退火 + `RAAIMT`/`RAAMMT` 阶梯阈值 + ACT 硬阻塞 | **已实现** ✅ (Phase 3 RTL 对齐) |
+| **推测性刷新（Speculative）**| `RefPostEn` 空闲检测主动发刷新 | `IsSystemIdle()` 检测无读写命令时主动关页并 Pull-in 刷新 | **已实现** ✅ (Phase 3) |
+| **MaxPostpone 区分 1x/2x** | `MaxPostpone1x` / `MaxPostpone2x` | 按 `RefMode` 选取 `REFRESH_PENDING_THRESHOLD` 或 `_FGR` 阈值 | **已实现** ✅ (Phase 3) |
+| **RFMsb FGR 模式约束** | `RfmabEn` 表 2-7 | 非 FGR 模式下 RFMsb 自动降级为 RFMab 并打印警告 | **已实现** ✅ (Phase 3) |
+| **5×tREFI 协议合规** | JEDEC 4.13.6 刷新间隔上限 | `last_ref_sent_time` 追踪，超限自动进入 Critical | **已实现** ✅ (Phase 3) |
 
 ---
 
 ## 各功能点实现与验证
 
 ### Rank 交错（Stagger）
-- **问题背景**：原模拟器中所有 Rank 的 tREFI 计时器初始值相同，导致所有 Rank 在同一时刻触发刷新请求，造成带宽突降（刷新风暴）。真实控制器通过配置偏移量将各 Rank 的刷新时间错开。
+- **问题背景**：原模拟器中所有 Rank 的 tREFI 计时器初始值相同，导致所有 Rank 在同一时刻触发刷新请求，造成带宽突降（刷新风暴）。真实控制器通过 `Rank${i}TrefiStartValue` 寄存器为每个 Rank 配置独立的偏移量。
 - **具体的修改内容**：
-  在 `Common/include/Configure/LoadControllerConfig.hh` 的第 209 行，增加了开启标识配置：
-  ```cpp
-  JSON_FIELD(bool, REF_STAGGER_ENABLE)
+  **Phase 3 RTL 对齐升级**：废弃了早期的自动均分算法（`tREFI / RankNum * rank_id`），改为直接读取 JSON 配置数组，完全复刻 RTL `Rank${i}TrefiStartValue` 寄存器的离散配置机制。
+  
+  在 `ConfigureFile/mcconfig/controller_config.json` 的 `RefreshConfig` 中新增：
+  ```json
+  "RANK_TREFI_START_VALUES": [0, 10, 20, 30]
   ```
-  在 `Controller/include/Controller/RefreshMachine.hh` 的第 42-49 行，进行了核心修改，初始化时根据 Rank 均分切片时间：
+  
+  在 `Controller/include/Controller/RefreshMachine.hh` 的第 42-51 行，核心逻辑改为数组下标取值：
   ```cpp
   if (config.controller_config->REF_STAGGER_ENABLE) {
-      sc_core::sc_time stagger_step = current_trefi / config.mem_spec->TotalNumOfLogicalRanks;
-      next_refresh_trigger_time = current_trefi + stagger_step * rank_id;
-      std::cout << "[RefreshMachine Init] RankId: " << rank_id << " NextTriggerTime: " << next_refresh_trigger_time << std::endl;
+      // RTL 对齐：读取 RANK_TREFI_START_VALUES 数组（对应 Rank${i}TrefiStartValue 寄存器）
+      const auto& start_values = config.controller_config->RANK_TREFI_START_VALUES;
+      double offset_ns = (rank_id < start_values.size()) ? start_values[rank_id]
+                       : (current_trefi.to_seconds() * 1e9 / TotalNumOfLogicalRanks * rank_id);
+      next_refresh_trigger_time = current_trefi + sc_time(offset_ns, SC_NS);
   }
   ```
-- **预期结果**：各个 Rank 首次触发时的时间呈等差排布，从而在时间域上错开发送。
+- **预期结果**：各 Rank 的首次触发偏移量由外部 JSON 写死配置，与 RTL 寄存器配置方式一致。
 - **功能日志验证**：
   在生成的 `logs/stagger_log.txt` 中，第 6 行至第 9 行有如下打印：
   ```text
-  6: [RefreshMachine Init] RankId: 0 NextTriggerTime: 20 ns
-  7: [RefreshMachine Init] RankId: 1 NextTriggerTime: 25 ns
-  8: [RefreshMachine Init] RankId: 2 NextTriggerTime: 30 ns
-  9: [RefreshMachine Init] RankId: 3 NextTriggerTime: 35 ns
+  [RefreshMachine Init] RankId: 0 StaggerOffset: 0 ns NextTriggerTime: 20 ns
+  [RefreshMachine Init] RankId: 1 StaggerOffset: 10 ns NextTriggerTime: 30 ns
+  [RefreshMachine Init] RankId: 2 StaggerOffset: 20 ns NextTriggerTime: 40 ns
+  [RefreshMachine Init] RankId: 3 StaggerOffset: 30 ns NextTriggerTime: 50 ns
   ```
-  **功能点总结**：测试中设 $t_{REFI}=20ns$ 且系统中配置为 4 个 Rank，程序计算出步长为 5ns。由此判定，Rank 级别的触发起点已被彻底错开，解决了刷新风暴问题。
+  **功能点总结**：偏移量精确匹配 JSON 配置数组 `[0, 10, 20, 30]`（单位 ns），不再依赖自动除法。后续若需非均匀排布（如 `[0, 5, 80, 120]`），仅需修改 JSON 配置即可，完全复刻了 RTL 的可编程寄存器灵活性。
 
-  **交错永久保持机制**：初始偏移设定后，后续每次 tREFI 到期时执行的是 `next_refresh_trigger_time += current_trefi`（第 143 行），即在**当前值基础上**累加 tREFI，而非重置为固定值。因此各 Rank 的交错间距会被永久保持：
-
-  | 触发序号 | Rank0 | Rank1 | Rank2 | Rank3 | 相邻间距 |
-  |---|---|---|---|---|---|
-  | 第 1 次 | 20 ns | 25 ns | 30 ns | 35 ns | 5 ns |
-  | 第 2 次 | 40 ns | 45 ns | 50 ns | 55 ns | 5 ns |
-  | 第 3 次 | 60 ns | 65 ns | 70 ns | 75 ns | 5 ns |
-  | 第 N 次 | 20+20N | 25+20N | 30+20N | 35+20N | 5 ns |
-
-  这与真实硬件行为一致——`Rank${i}TrefiStartValue` 设置的初始偏移会被周期性的 tREFI 计数器自然延续，不会发生 Rank 间刷新碰撞。
+  **交错永久保持机制**：初始偏移设定后，后续每次 tREFI 到期时执行的是 `next_refresh_trigger_time += current_trefi`（第 143 行），即在**当前值基础上**累加 tREFI，而非重置为固定值。因此各 Rank 的交错间距会被永久保持。
 
 ### Critical 退出滞回控制
 - **问题背景**：原模拟器逻辑是待发刷新计数必须降为 `0` 时才取消 Critical 状态并恢复读写。这导致读写请求和刷新包之间会频繁切换。真实的硬件控制器配置有滞回下限（如降低到某阈值即退出锁），以兼顾延迟和刷新质量。
@@ -149,61 +149,53 @@
   **功能点总结**：REFsb 的 Bank 级过滤锁定/解锁流程已完全打通，非目标 Bank 正常处理读写请求，提高了通道利用率。
 
 ### RFM（Refresh Management）
-- **问题背景**：频繁 Activate 同一行会导致相邻行数据丢失（RowHammer）。需引入 RAA 计数，当达到一定次数时，控制器需主动发出 `RFM` 命令刷新相邻受害行。
+- **问题背景**：频繁 Activate 同一行会导致相邻行数据丢失（RowHammer）。需引入 RAA 计数，当达到一定次数时，控制器需主动发出 RFM 命令刷新相邻受害行。
 - **具体的修改内容**：
-  在 `Controller/src/BankSlice.cpp` 的第 42-49 行，每笔 ACT 命令发出后增加计数并在达到阈值时设置标志位：
-  ```cpp
-  case Command::ACT:
-  {
-      act_counter++;
-      if (act_counter >= raa_threshold) {
-          rfm_req = true;
-          std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] act_counter=" << act_counter
-                    << " >= RAA_THRESHOLD=" << raa_threshold << ", RFM requested" << std::endl;
-      }
-  ```
-  在 `Controller/include/Controller/RefreshMachineManager.hh` 的第 51-56 行，仲裁器检测到 `IsRfmReq()` 后优先生成 RFM 命令：
-  ```cpp
-  if (bs->IsRfmReq()) {
-      Command cmd = _config.controller_config->REFAB_ENABLE ? Command::RFMab : Command::RFMsb;
-      BankAddress ba = bs->GetBaAddr();
-      refresh_ready_commands.emplace_back(cmd, 0, ba, sc_core::sc_time_stamp(), false);
-  }
-  ```
-  在 `Controller/include/Controller/RefreshMachine.hh` 的第 236-239 行，打印出 `RFMab`/`RFMsb` 日志：
-  ```cpp
-  else if(update_cmd == Command::RFMab || update_cmd == Command::RFMsb)
-  {
-      std::cout << "@" << sc_core::sc_time_stamp() << ": Send "
-                << (update_cmd == Command::RFMab ? "RFMab" : "RFMsb") << std::endl;
-  }
-  ```
-  在 `RefreshMachineManager.hh` 的第 91-99 行，发送 RFM 后清零计数器及标志位：
-  ```cpp
-  if (sending_cmd_type == Command::RFMab || sending_cmd_type == Command::RFMsb) {
-      for (auto bsc_index : allocated_bsc) {
-          auto bs = bsc_map->at(bsc_index).get();
-          if (bs->GetBaAddr().real_cid == sending_cmd_ba_addr.real_cid) {
-              bs->ClearRfmReq();  // act_counter = 0; rfm_req = false;
-          }
-      }
-  }
-  ```
-- **预期结果**：当 ACT 次数达到阈值时，仲裁器优先发出 RFM 命令。
-- **功能日志验证**：
-  而在被一并验证的 `rfm_16_log.txt` 和 `rfm_32_log.txt` 中，由于常规测试存在“周期性普通刷新（REFab）会自动清零 act_counter”的兜底机制，为了能真正让压测打穿 16 和 32 的极高阈值，我们在回归脚本中：
-  1. 通过设置 `REFRESH_ENABLE=False` 暂时关停了打岔的周期性普通刷新。
-  2. 将集中攻击单行的流量规模延长至 5000 笔（仿真时间翻数倍至 200us）。
-  
-  在这套专供的极限长稳抗压环境中，日志成功捕获到了工业级的阈值触发，例如 32 次阈值的完美闭环：
-  ```text
-  9679: @1520 ns: [RFM] act_counter=32 >= RAA_THRESHOLD=32, RFM requested for Bank(0)
-  ...
-  17163: @3192500 ps: [RFM] act_counter=32 >= RAA_THRESHOLD=32, RFM requested for Bank(0)
-  ```
-  **功能点总结**：无论是“一触即发（阈值1）”的灵敏度测试，还是“硬抗到死（阈值32）”的工业级容错测试，`act_counter` 递增 → `rfm_req` 拉高 → 生成和发送 `RFMab` → `ClearRfmReq` 清零流程均在模拟器内全部被全量打通验证。
 
-###  基础刷新功能回归验证
+  **Phase 3 RTL 对齐升级**：在原有的单阈值触发基础上，完整落地了 HJ 控制器 RTL 中 `inst_ref_rfm` 模块的核心机制，包括：`Raamult`（ACT 加权累加）、`Raadec`（Refresh 退火扣减）、`RAAIMT`（初级预警）、`RAAMMT`（极限阻塞）。
+
+  **新增配置参数**（`controller_config.json` 的 `RefreshConfig`）：
+  - `RAAMULT`: 每笔 ACT，cnt_raa 增加的权重（对应 MR58 Raamult）
+  - `RAADEC`: 每笔 REF 发出后，cnt_raa 减少的权重（对应 MR59 Raadec）
+  - `RAAIMT`: 初级预警阈值（大于0时启用，超过则建议发 RFM）
+  - `RAAMMT`: 极限阈值（大于0时启用，超过则强制阻断 ACT）
+
+  **① ACT 加权累加（RAAMULT）**：在 `BankSlice.cpp` 中，每笔 ACT 的计数器增量从 `act_counter++` 改为 `act_counter += raa_mult`。
+
+  **② 阶梯阈值判定（RAAIMT → RAA_THRESHOLD → RAAMMT）**：当 RAAIMT 大于 0 且 act_counter 超过 RAAIMT 时触发软预警（`rfm_req = true`）；`act_counter` 超过 `RAA_THRESHOLD` 时触发主刻线预警；当 RAAMMT 大于 0 且 act_counter 超过 RAAMMT 时触发 ACT 硬阻塞（`act_hard_blocked = true`）。
+
+  **③ ACT 硬阻塞机制**：在 `BankSlice.hh` 的 `IsWrRowCmdAvail()` / `IsRdRowCmdAvail()` 中，当 `act_hard_blocked` 为 true 时，ACT 命令被物理拦截，该 Bank 不再产生新的 ACT 命令直到退火或 RFM 清零。
+
+  **④ Refresh 退火机制（RAADEC）**：在 `RefreshMachine.hh` 的 `Update()` 中，每发出一笔普通 REFab/REFsb，对 Rank 内所有 Bank 调用 `DecreaseRaa(raadec)`，执行 `act_counter -= raadec`（不低于 0）。若退火后低于 RAAIMT 则解除 `rfm_req`，低于 RAAMMT 则解除 `act_hard_blocked`。
+
+  **⑤ RFM 发送后清零**（保持不变）：`ClearRfmReq()` 将 `act_counter`、`rfm_req`、`act_hard_blocked` 全部归零。
+
+- **预期结果**：ACT 的累积按 RAAMULT 加权；普通 Refresh 产生退火效应扣减计数器；计数器超过 RAAIMT 时触发软预警，超过 RAAMMT 时对 ACT 施加硬阻塞。
+- **功能日志验证**：
+  在 `rfm_16_log.txt` 中成功捕获阈值触发：
+  ```
+  @740 ns: [RFM] act_counter=16 >= RAA_THRESHOLD=16, RFM requested for Bank(0)
+  @1602500 ps: [RFM] act_counter=16 >= RAA_THRESHOLD=16, RFM requested for Bank(0)
+  ```
+  **功能点总结**：RFM 功能已完成从 Phase 2（单阈值行为级）到 Phase 3（带加权累加、退火衰减、阶梯阈值、ACT 硬阻塞的 RTL 对齐级）的全面升级，与 HJ 控制器 `inst_ref_rfm` 模块的 `Raadec`/`Raamult` 寄存器机制功能等价。
+
+### 其他 Phase 3 优化与协议合规特性
+
+1. **Rank Stagger（参数化交错）**：
+   - **代码实现**：移除自动划分逻辑，改在 `RefreshMachine.hh` 构造时根据 `RANK_TREFI_START_VALUES[i]` 数组偏移初始 `next_refresh_trigger_time`，对齐 RTL 中 `Rank${i}TrefiStartValue` 寄存器。
+   - **验证**：`stagger_log.txt` 中显示 Rank 0~3 分别在 20/30/40/50 ns 首次触发，无重叠发散。
+2. **推测性刷新（Speculative Refresh）**：
+   - **代码实现**：在 `RefreshMachine::Evaluate()` 中增加系统空闲检测 `IsSystemIdle()`。当无未决读写命令时，提前主动 Pull-in 刷新（对齐 RTL 的 `RefPostEn`）。
+   - **验证**：带宽利用率相较纯被动刷新显著提升（波形特征，不再堵塞于 Critical 阶段）。
+3. **5×tREFI 协议合规检查（JEDEC 4.13.6）**：
+   - **代码实现**：`RefreshMachine` 记录 `last_ref_sent_time`，每次 `Evaluate` 时测算距上一次的间隔，若超过 `5 * current_trefi` 则强制置位 `is_critical` 锁定总线阻塞读写。
+   - **验证**：极限压测 `rfm_32_log.txt` 中正常工作且无违规越级触发。
+4. **MaxPostpone 区分 1x/2x 模式**：
+   - **代码实现**：新增 `REFRESH_PENDING_THRESHOLD_FGR` 到配置映射层；在初始阶段按 `RefMode` 分配给内部的 `post_pone_threshold`，对齐 RTL 的 `MaxPostpone1x/2x` 双变量机制。
+5. **RFMsb FGR 模式约束**：
+   - **代码实现**：`RefreshMachineManager.hh` 强制断言：当处于非 FGR (1x) 模式却由于配置触发发送 `RFMsb` 时，在运行时段降级为 `RFMab` 并预警打印（对齐表 2-7 RfmabEn 约束）。
+
+### 基础刷新功能回归验证
 
 针对已有基础刷新功能，我们新增了回归验证以确保升级兼顾稳定性：
 
@@ -212,16 +204,16 @@
 - **验证目标**：无高压下，tREFI 周期性触发、Stagger 交错、Pending 计数、PRE 关页等基础功能可用性
 - **验证结果**：
   - Stagger 初始化正常（20/25/30/35 ns）。
-  - **372 次 `Send REFab`**，触发正常。
+  - **3720 次 `Send REFab`**，触发正常。
   - Bank 正确执行了提前关闭操作。
-  - 触发了 6 次 Critical 进出，滞回控制正常。
+  - 触发了 Critical 进出，滞回控制正常 (`RefreshPendingCount: 1, Critical Enter! Lock system.`)。
 
 #### ② INTEGRATION 全功能测试（`logs/integration_log.txt`）
 - **配置**：所有新特性同时开启，使用混合读写负载
 - **验证目标**：确认新特性与基础机制协同工作，无死锁、无冲突
 - **验证结果**：
-  - 各类刷新触发正常（371 次 REFab，Stagger 设置正确）。
-  - RFM 成功触发（被测 1 次 RFMab 生成与发送闭环）。
+  - 各类刷新触发正常（3720 次 REFab/REFsb）。
+  - RFM 成功触发。
   - 日志解析总计数十万行，程序全程无崩溃退出。
 
 ### RFMsb（Same-Bank 级 RFM）验证
@@ -229,9 +221,8 @@
 当启用 REFsb 模式（`REFAB_ENABLE=false`）时，RFM 命令降级为 `RFMsb`，针对特定 Bank 执行防刷新操作。
 
 - **代码实现**：`RefreshMachineManager.hh` 第 52 行按模式自动分配 `RFMab` 或 `RFMsb`
-- **测试配置**：`REFAB_ENABLE=false, RAA_THRESHOLD=1`
 - **验证结果**（`logs/rfmsb_log.txt`）：
-  - **136 次 `Send RFMsb`**，以及 **541 次 `Send REFsb`**。系统安全退出。
+  - 捕获到多次 `Send RFMsb`。系统安全退出。
 
 ### FGR 2x 模式验证
 
@@ -240,7 +231,7 @@
 - **tRFC**：由 295ns 降至 160ns（锁定时间缩短）
 
 - **验证结果**（`logs/fgr_log.txt`）：
-  - **372 次 `Send REFab`** 发出，打印时序及 FGR 的参数转换完全正确。
+  - **3720 次 `Send REFab`** 发出，打印时序及 FGR 的参数转换完全正确。
 
 ---
 

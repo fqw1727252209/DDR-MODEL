@@ -70,7 +70,7 @@ SdramConstraintDDR5_3ds::TimeToSatisfyConstraints(Command command,BankAddress ad
 
     assert(command_bank < _ddr5_memspec_3ds.NumOfTotalBanks);
     DPRINT_ASSERT(command_bg < _ddr5_memspec_3ds.NumOfTotalBankGroups, "SDRAMconstraint", "command_bg: %d",command_bg);
-    assert(command_bg < _ddr5_memspec_3ds.NumOfBankGroups);
+    assert(command_bg < _ddr5_memspec_3ds.NumOfTotalBankGroups);
     assert(command_lrank < _ddr5_memspec_3ds.TotalNumOfLogicalRanks);
     assert(command_prank < _ddr5_memspec_3ds.NumOfPhysicalRanksPerChannel);
 

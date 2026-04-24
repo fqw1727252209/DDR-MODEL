@@ -50,6 +50,11 @@ class RefreshMachineManager{
                 auto bs = bsc_map->at(bsc_index).get();
                 if (bs->IsRfmReq()) {
                     Command cmd = _config.controller_config->REFAB_ENABLE ? Command::RFMab : Command::RFMsb;
+                    // RTL 对齐：RFMsb 仅在 FGR 模式下允许（表 2-7），非 FGR 强制降级为 RFMab
+                    if (cmd == Command::RFMsb && _config.mem_spec->RefMode != RefModeTypeDDR5::FGR) {
+                        cmd = Command::RFMab;
+                        std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] WARNING: RFMsb not allowed in non-FGR mode, fallback to RFMab" << std::endl;
+                    }
                     BankAddress ba = bs->GetBaAddr();
                     refresh_ready_commands.emplace_back(cmd, 0, ba, sc_core::sc_time_stamp(), false);
                 }

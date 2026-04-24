@@ -21,7 +21,7 @@
 // std::cout<<"debug info: "<<_message <<std::endl;
 
 // #define DEBUG_PRINT_TIME(_message) \
-// std::cout<<"debug info: "<<"<<time: "<<sc_core::sc_time_stamp()<<"<<\t "<<_message <<std::endl;
+// std::cout<<"debug info: "<<"time: "<<sc_core::sc_time_stamp()<<":\t "<<_message <<std::endl;
 // #else
 // // 如果没有定义 DEBUG 宏，DEBUG_PRINT 宏不做任何事
 // #define DEBUG_PRINT_VALUE(_message)
@@ -139,6 +139,30 @@ class LoadConfigFromJson{
                     return false;
                 }
                 value = val.GetBool();
+            }
+            else if constexpr (std::is_same_v<T, std::vector<typename T::value_type>>) {
+                // std::vector<ElementType> 解析：JSON Array -> C++ vector
+                if (!val.IsArray()) {
+                    std::cerr << "Json File '" << _filename << "': [" << name << "] dont match Array type" << std::endl;
+                    return false;
+                }
+                value.clear();
+                for (const auto& elem : val.GetArray()) {
+                    typename T::value_type item{};
+                    if constexpr (std::is_floating_point_v<typename T::value_type>) {
+                        if (elem.IsDouble())      item = elem.GetDouble();
+                        else if (elem.IsInt())    item = static_cast<typename T::value_type>(elem.GetInt());
+                        else if (elem.IsUint())   item = static_cast<typename T::value_type>(elem.GetUint());
+                        else { std::cerr << "Array element type mismatch in [" << name << "]" << std::endl; return false; }
+                    } else if constexpr (std::is_integral_v<typename T::value_type> && std::is_unsigned_v<typename T::value_type>) {
+                        if (!elem.IsUint()) { std::cerr << "Array element type mismatch in [" << name << "]" << std::endl; return false; }
+                        item = elem.GetUint();
+                    } else if constexpr (std::is_integral_v<typename T::value_type>) {
+                        if (!elem.IsInt()) { std::cerr << "Array element type mismatch in [" << name << "]" << std::endl; return false; }
+                        item = elem.GetInt();
+                    }
+                    value.push_back(item);
+                }
             }
             else {
                 // 假设是嵌套结构体，需要实现ParseStruct函数

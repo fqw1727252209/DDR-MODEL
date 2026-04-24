@@ -55,7 +55,7 @@ Scheduler::StoreRdRequest(InputProcessReq& rd_input_request)
         else
         {
             DPRINT_WARNING(false, "Scheduler Rd Store", "the new command page hit: %d, the bank is in Activing: %d, activing end time: %s, the ntt is valid: %d",
-            is_page_hit,bank_slice->IsActiving(),bank_slice->GetACTEndTime().to_string().c_str(),bank_slice->IsRdNttValid());
+            is_page_hit,bank_slice->IsActiving(),bank_slice->GetActEndTime().to_string().c_str(),bank_slice->IsRdNttValid());
         }
     }
     rd_cam->GetCamEntry(rd_input_request.cam_index)->print();

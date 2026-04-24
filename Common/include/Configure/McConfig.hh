@@ -2,6 +2,7 @@
 #define __MC_CONFIG_HH__
 
 #include "Configure/LoadControllerConfig.hh"
+#include <vector>
 
 namespace dmu{
     namespace Controller{
@@ -85,6 +86,7 @@ public:
     //Refresh
     const bool REFRESH_ENABLE;
     const unsigned REFRESH_PENDING_THRESHOLD;
+    const unsigned REFRESH_PENDING_THRESHOLD_FGR; // MaxPostpone2x
     const bool REFRESH_POSTPONE_ENABLE;
 
     const unsigned POSTPONE_LOW_THRESHOLD_SAME_BANK;
@@ -92,6 +94,18 @@ public:
 
     const bool ACT_MASK_NORMAL_REFRESH_ENABLE;
     const bool CRITICAL_REFRESH_MASK_ACT_ENABLE;
+    
+    const bool REFAB_ENABLE;
+    const unsigned RAA_THRESHOLD;
+    const bool REF_STAGGER_ENABLE;
+    const unsigned MR4_TEMP_MULTIPLIER;
+
+    // RTL 对齐：Rank 独立偏置与 RFM 滑动窗口
+    const std::vector<double> RANK_TREFI_START_VALUES;
+    const unsigned RAAMULT;
+    const unsigned RAADEC;
+    const unsigned RAAIMT;
+    const unsigned RAAMMT;
     // const REFRESH_TYPE; // 0 - Refresh all banks, 1 - Refresh same banks, 2 - Refresh all Bank and Refresh Same Bank Mixed
 
     //CHI Port
