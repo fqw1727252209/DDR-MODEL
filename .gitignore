@@ -55,3 +55,6 @@ core.*
 
 # Compilation database
 compile_commands.json
+
+# Windows Zone.Identifier metadata files
+*:Zone.Identifier
