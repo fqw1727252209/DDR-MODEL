@@ -1,8 +1,10 @@
 #include <memory>
 
+#include "Common/Logger.hh"
 #include "Controller/CamEntry.hh"
 #include "Controller/RdCam.hh"
 #include "Controller/InputProcess.hh"
+
 namespace dmu{
     namespace Controller{
 
@@ -11,8 +13,8 @@ namespace dmu{
 // {
 // }
 
-RdCam::RdCam(const Configure& config)
-: CamIF(config.controller_config->RD_CAM_DEPTH)
+RdCam::RdCam(const Configure& config,unsigned pch_id)
+: CamIF(config.controller_config->RD_CAM_DEPTH,pch_id)
 , _config(config)
 {
     lpr_cam_credit = _config.controller_config->LPR_CREDIT;
@@ -35,13 +37,13 @@ RdCam::StoreRequest(InputProcessReq& rd_request)
     }
     ba_cmds_order_list[rd_request.sdram_addr.real_ba].push_back(rd_request.cam_index);
 
-    if(rd_request._qos.GetQosLevel() == PriorityClass::HPR)
+    if(rd_request.qos.GetQosLevel() == PriorityClass::HPR)
     {
         hpr_cmd_set.insert(rd_request.cam_index);
         UpdateHprCamFull();
         UpdateHprFillLevel();
     }
-    else if(rd_request._qos.GetQosLevel() == PriorityClass::LPR || rd_request._qos.GetQosLevel() == PriorityClass::GPR)
+    else if(rd_request.qos.GetQosLevel() == PriorityClass::LPR || rd_request.qos.GetQosLevel() == PriorityClass::GPR)
     {
         lpr_cmd_set.insert(rd_request.cam_index);
         UpdateLprCamFull();
@@ -89,7 +91,6 @@ RdCam::DeleteCamEntry(CAM_INDEX removed_cam_index)
     cam_store.erase(removed_cam_index);
 }
 
-
 OrderList
 RdCam::GetAvailBaOrderList(RealBaIndex ba_addr)
 {
@@ -120,6 +121,20 @@ RdCam::IsAvailBaOrderListEmpty(RealBaIndex ba_addr)
     }
 }
 
+unsigned
+RdCam::GetVaildCamSize()
+{
+    unsigned valid_cmd_size =0;
+    for(auto cam_index: used_allocated_cam_index)
+    {
+        if(GetCamEntry(cam_index)->is_allocated)
+        {
+            valid_cmd_size++;
+        }
+    }
+    return valid_cmd_size;
+}
+
 void
 RdCam::UpdateRdCriticalState()
 {
@@ -129,39 +144,66 @@ RdCam::UpdateRdCriticalState()
     // UpdateHprCamFull();
     // UpdateLprCamFull();
 
-    // Implement with Codex
+    Implement with Codex
     // TODO:
     // uif gpr and uif gpw is not critical, starve counter achieve max or hpr is full state
-    bool set_hpr_critical = !(false || false) &&  (_config.controller_config->HPR_MAX_STARVE!=0 && (IsHprStarve())) || hpr_cam_full;
-
+    bool set_hpr_critical = !(false || false) && (_config.controller_config->HPR_MAX_STARVE!=0 && (IsHprStarve())) || hpr_cam_full;
+    bool is_hpr_avail = IsHprAvailable();
     if(set_hpr_critical)
     {
+        if(!is_hpr_critical)
+        {
+            DMU_LOG_INFO_NF("Scheduler_"+std::to_string(pch_id),"[PCH:%d] Hpr enter Critical State for: Starve=%d, CamFull=%d",pch_id,IsHprStarve(),hpr_cam_full);
+        }
         is_hpr_critical = true;
     }
     else if(_config.controller_config->HPR_FILL_LEVEL_MODE && hpr_full_negedge)
     {
+        DMU_LOG_INFO_NF("Scheduler_"+std::to_string(pch_id),"[PCH:%d] Hpr exit Critical State for: FullNeg=%d",pch_id,hpr_full_negedge);
         is_hpr_critical = false;
     }
     else if(!IsHprAvailable() || hpr_run_lenth_cnt == _config.controller_config->HPR_CMD_RUNLEN || _config.controller_config->HPR_MAX_STARVE == 0)
     {
+        if(is_hpr_critical)
+        {
+            DMU_LOG_INFO_NF("Scheduler_"+std::to_string(pch_id),"[PCH:%d] Hpr exit Critical State for: run lenth counter achieve:%d,counter:%d",pch_id,hpr_run_lenth_cnt == _config.controller_config->HPR_CMD_RUNLEN,hpr_run_lenth_cnt);
+        }
         is_hpr_critical = false;
     }
 
-    bool set_lpr_critical = false || ( (!(set_hpr_critical || false) &&  (_config.controller_config->LPR_MAX_STARVE!=0 && IsLprStarve() )) || lpr_cam_full);
-    // Implement with Codex
+    bool set_lpr_critical = false || ((!set_hpr_critical || false) && (_config.controller_config->LPR_MAX_STARVE!=0 && IsLprStarve()) || lpr_cam_full);
+    bool is_lpr_avail = IsLprAvailable();
+    Implement with Codex
     // TODO:uif gpr is critical or not hpr cam in critical,not uif gpw in critical, starve counter achieve max or lpr cam is full state
     if(set_lpr_critical)
     {
         is_lpr_critical = true;
+        DMU_LOG_INFO_NF("Scheduler_"+std::to_string(pch_id),"[PCH:%d] Lpr enter Critical State for: LprStarve=%d, CamFull=%d",pch_id,IsLprStarve(),lpr_cam_full);
     }
     else if(_config.controller_config->LPR_FILL_LEVEL_MODE && lpr_full_negedge)
     {
         is_lpr_critical = false;
+        DMU_LOG_INFO_NF("Scheduler_"+std::to_string(pch_id),"[PCH:%d] Lpr exit Critical State for: FullNeg=%d",pch_id,lpr_full_negedge);
     }
-    else if(!IsLprAvailable() || lpr_run_lenth_cnt == _config.controller_config->LPR_CMD_RUNLEN || _config.controller_config->LPR_MAX_STARVE == 0)
+    else if(!is_lpr_avail || lpr_run_lenth_cnt == _config.controller_config->LPR_CMD_RUNLEN || _config.controller_config->LPR_MAX_STARVE == 0)
     {
-        is_hpr_critical = false;
+        is_lpr_critical = false;
+        if(is_lpr_avail)
+        {
+            DMU_LOG_INFO_NF("Scheduler_"+std::to_string(pch_id),"[PCH:%d] Lpr exit Critical State for: , run length counter achieve:%d,counter:%d",pch_id,lpr_run_lenth_cnt == _config.controller_config->LPR_CMD_RUNLEN,lpr_run_lenth_cnt);
+        }
     }
+}
+
+bool
+RdCam::IsLprCritical() const
+{
+    return this->is_lpr_critical;
+}
+bool
+RdCam::IsHprCritical() const
+{
+    return this->is_hpr_critical;
 }
 
 bool

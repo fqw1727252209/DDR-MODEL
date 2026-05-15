@@ -31,9 +31,7 @@ namespace dmu{
             const unsigned allocated_cam_index;
 
             //
-            // Implement with Codex
             sc_core::sc_time expired_time; // TODO:this will also not be changed
-            // Implement with Codex
             unsigned cmd_aging_limit{100}; // TODO:may not be configured here, can store in the cam
 
             unsigned ahead_scheduled_cmd_num{0};
@@ -57,7 +55,7 @@ namespace dmu{
                 _request->release();
             }
             void SetReleaseBsc();
-            void SetAllocateBsc(BSC_INDEX allocated_bsc_index);
+            void SetAllocateBsc(BSC_INDEX bsc_index);
             void SetBaMatch(BSC_INDEX matched_bsc_index, bool _is_page_hit);
 
             inline RealBaIndex GetCamEntryRealBa() const {return sdram_addr.real_ba;}
@@ -79,7 +77,7 @@ namespace dmu{
 
             inline bool IsExpired() const
             {
-                return (expired_time >= sc_core::sc_time_stamp() &&
+                return (expired_time <= sc_core::sc_time_stamp() &&
                        (qos.GetQosLevel() == PriorityClass::GPR || qos.GetQosLevel() == PriorityClass::GPW))
                        || ahead_scheduled_cmd_num >= cmd_aging_limit;
             }

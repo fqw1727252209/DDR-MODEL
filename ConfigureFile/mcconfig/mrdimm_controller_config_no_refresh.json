@@ -1,0 +1,179 @@
+{
+    "RD_QOS_LEVEL_0":5,
+    "RD_QOS_LEVEL_1":10,
+    "WR_QOS_LEVEL":7,
+
+    "GPR_EXPIRED_TIME":0,
+    "GPW_EXPIRED_TIME":0,
+
+    "PHY_CMD_DELAY": 6.0,
+    "PHY_RDAT_DELAY": 5.0,
+    "PHY_WDAT_DELAY": 5.0,
+
+    "SchedulerConfig":
+    {
+        "RD_CAM_DEPTH": 64,
+        "WR_CAM_DEPTH": 64,
+        "WDAT_BUFFER_DEPTH":64,
+        "RDAT_BUFFER_DEPTH":64,
+        "BSC_NUM":  64,
+
+        "AUTO_PRECHARGE_ENABLE": true,
+        "NCWEN":true,
+
+        "BANK_HASH_ENABLE":false,
+
+        "BSC_USED_HIGH_THRESHOLD": 64,
+        "BSC_USED_LOW_THRESHOLD":56,
+        "DYNAMIC_BSC_ENABLE":false,
+        "DYNAMIC_BSC_BUSY_RELEASE_ENABLE":false,
+        "BSC_DEEP_RELEASE_ENABLE":false,
+        "DYNAMIC_BSC_BUSY_MASK_ENABLE":false,
+        "BSC_TERMINATE_BROKEN_ENABLE":false,
+        "BSC_TERMINATE_ENABLE":false,
+
+        "HPR_CREDIT":64,
+        "LPR_CREDIT":0,
+        "TPW_CREDIT":64,
+
+        "HPR_FILL_LEVEL_MODE":true,
+        "LPR_FILL_LEVEL_MODE":true,
+        "TPW_FILL_LEVEL_MODE":true,
+
+        "HPR_STARVE_COUNT_MODE":true,
+        "LPR_STARVE_COUNT_MODE":true,
+        "TPW_STARVE_COUNT_MODE":true,
+
+        "HPR_HIGH_THRESHOLD":48,
+        "HPR_LOW_THRESHOLD":36,
+        "LPR_HIGH_THRESHOLD":48,
+        "LPR_LOW_THRESHOLD":36,
+        "TPW_HIGH_THRESHOLD":62,
+        "TPW_LOW_THRESHOLD":60,
+
+        "WR_COMBINE_ENABLE": false,
+
+        "HPR_MAX_STARVE":   1500,
+        "LPR_MAX_STARVE":   1500,
+        "TPW_MAX_STARVE":   1500,
+        "HPR_CMD_RUNLEN":   50,
+        "LPR_CMD_RUNLEN":   5,
+        "TPW_CMD_RUNLEN":   50,
+
+        "Max_RW_BEFORE_SWITCH": 8,
+        "OPP_HIT_CNT": 5,
+        "MODE_SWITCH_POLICY":   true,
+
+        "WR_HIT_LIMIT_THRESHOLD":   255,
+        "RD_HIT_LIMIT_THRESHOLD":   255,
+
+        "RD_CMD_AGING_LIMIT": 0,
+        "WE_CMD_AGING_LIMIT": 0,
+
+        "WR_OPPOSITE_ACT_ENABLE":   false,
+        "RD_OPPOSITE_ACT_ENABLE":   false,
+
+        "PREFER_HIT_HPR":   true,
+
+        "RD_CNT_THR_EN":true,
+        "RD_CNT_THR":16,
+        "WR_CNT_THR_EN":true,
+        "WR_CNT_THR":32,
+        "SW_WR_DELAY_EN":true,
+        "SW_WR_DELAY":20,
+        "PREFER_WR":false,
+        "SW_WR_CAM_THR_EN":true,
+        "SW_WR_CAM_THR":48,
+        "RD_OPEN_BANK_NUM":16,
+        "WR_OPEN_BANK_NUM":8,
+        "RD_KEEP_PAGE_NUM":2,
+        "WR_KEEP_PAGE_NUM":2,
+        "PAGE_CLOSE_TIME":0
+    },
+    "RefreshConfig":{
+        "REFRESH_ENABLE": false,
+        "REFRESH_PENDING_THRESHOLD": 1,
+        "REFRESH_MANAGER_ENABLE": false,
+        "REFRESH_POSTPONE_ENABLE": false,
+
+        "POSTPONE_LOW_THRESHOLD_SAME_BANK": 0,
+        "POSTPONE_LOW_THRESHOLD_ALL_BANK": 0,
+
+        "ACT_MASK_NORMAL_REFRESH_ENABLE": false,
+        "CRITICAL_REFRESH_MASK_ACT_ENABLE": false
+    },
+    "PortConfig":
+    {
+        "RD_DAT_INFO_DEPTH":128,
+        "WR_DAT_BUFFER_DEPTH":64,
+
+        "LPR_QUEUE_DEPTH":64,
+        "HPR_QUEUE_DEPTH":64,
+        "TPW_QUEUE_DEPTH":64,
+
+        "WR_CQ_DEPTH":64,
+        "RD_CQ_DEPTH":64,
+
+        "RSP0_FIFO_DEPTH":16,
+        "RSP1_FIFO_DEPTH":32,
+        "RSP2_FIFO_DEPTH":32,
+        "RSP3_FIFO_DEPTH":32,
+        "RSP4_FIFO_DEPTH":16,
+        "RSP5_FIFO_DEPTH":32,
+
+        "RETRY_GPR_EXPIRED_ENABLE": false,
+        "RETRY_GPW_EXPIRED_ENABLE": false,
+        "RETRY_GPR_EXPIRED_TIME": 0,
+        "RETRY_GPW_EXPIRED_TIME": 0,
+
+        "MIN_LGPR_QUEUE_DEPTH": 8,
+        "MIN_HPR_QUEUE_DEPTH":12,
+
+        "PA_RDWR_SWITCH_FAST":true,
+        "PORT_AGING_INIT":1,
+
+        "CBUSY_ENABLE":false,
+        "MPAM_ENABLE":false,
+        "CAL_ID_MAPPING":{
+            "QOS_MAPPING":false,
+            "SRC_ID_MAPPING":false,
+            "QOS_THRESHOD_GROUP0":3,
+            "QOS_THRESHOD_GROUP1":5,
+            "QOS_THRESHOD_GROUP2":7,
+            "SRC_ID_GROUP0":[
+
+            ],
+            "SRC_ID_GROUP1":[
+
+            ],
+            "SRC_ID_GROUP2":[
+
+            ]
+        },
+        "PROTQ_FREE_THRESHOLD_LGPR":0,
+        "PROTQ_MIDDLE_THRESHOLD_LGPR":1,
+        "PROTQ_BUSY_THRESHOLD_LGPR":2,
+        "PROTQ_FREE_THRESHOLD_HPR":0,
+        "PROTQ_MIDDLE_THRESHOLD_HPR":1,
+        "PROTQ_BUSY_THRESHOLD_HPR":2,
+        "PROTQ_FREE_THRESHOLD_WR":0,
+        "PROTQ_MIDDLE_THRESHOLD_WR":1,
+        "PROTQ_BUSY_THRESHOLD_WR":2,
+        "PROTQ_FREE_THRESHOLD_RD":0,
+        "PROTQ_MIDDLE_THRESHOLD_RD":1,
+        "PROTQ_BUSY_THRESHOLD_RD":2,
+
+        "CAM_FREE_THRESHOLD_LGPR":0,
+        "CAM_MIDDLE_THRESHOLD_LGPR":1,
+        "CAM_BUSY_THRESHOLD_LGPR":2,
+        "CAM_FREE_THRESHOLD_HPR":0,
+        "CAM_MIDDLE_THRESHOLD_HPR":1,
+        "CAM_BUSY_THRESHOLD_HPR":2,
+        "CAM_FREE_THRESHOLD_WR":0,
+        "CAM_MIDDLE_THRESHOLD_WR":1,
+        "CAM_BUSY_THRESHOLD_WR":2,
+
+        "CAM_BASED":false,
+        "PROTQ_BASED":false
+    }
+}

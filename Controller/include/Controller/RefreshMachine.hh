@@ -3,6 +3,7 @@
 
 #include "Controller/BankSliceManager.hh"
 #include "Configure/AddressDecoder.hh"
+#include "Controller/common/CmdExtension.hh"
 #include "Controller/common/Command.hh"
 #include "Controller/common/ControllerCommon.hh"
 #include "Configure/Configure.hh"
@@ -19,47 +20,30 @@ namespace dmu{
 
 class RefreshMachine{
     public:
-        RefreshMachine(unsigned rank_id, BankSliceManager& bank_slice_manager, const Configure& config)
+        RefreshMachine(unsigned rank_id, BankSliceManager& bank_slice_manager, const Configure& config,unsigned pch_id)
         : rank_id(rank_id)
         , cs(static_cast<unsigned>(rank_id / config.mem_spec->NumOfLogicalRanksPerPhysicalRank))
         , cid(rank_id % config.mem_spec->NumOfLogicalRanksPerPhysicalRank)
         , _bank_slice_manager(bank_slice_manager)
         , _configure(config)
-        , post_pone_threshold(
-            (config.mem_spec->RefMode == RefModeTypeDDR5::FGR)
-                ? config.controller_config->REFRESH_PENDING_THRESHOLD_FGR  // MaxPostpone2x
-                : config.controller_config->REFRESH_PENDING_THRESHOLD)    // MaxPostpone1x
-        , post_pone_low_threshold(config.controller_config->POSTPONE_LOW_THRESHOLD_ALL_BANK)
+        , refresh_interval(config.mem_spec->tREFI_mc)
+        ,post_pone_threshold(config.controller_config->REFRESH_PENDING_THRESHOLD)
         {
-            unsigned temp_multiplier = config.controller_config->MR4_TEMP_MULTIPLIER;
-            if (temp_multiplier == 0) temp_multiplier = 1;
-            current_trefi = config.mem_spec->tREFI_mc / temp_multiplier;
-
             // unsigned RankBits = config.address_decoder;
-            for(unsigned bank_id = rank_id * config.mem_spec->NumOfBankPerLogicalRank; bank_id < (rank_id+1) * config.mem_spec->NumOfBankPerLogicalRank; bank_id++)
+            for (unsigned bank_id = rank_id * config.mem_spec->NumOfBanksPerLogicalRank; bank_id < (rank_id+1) * config.mem_spec->NumOfBanksPerLogicalRank; bank_id++)
             {
                 rank_banks.push_back(bank_id);
             }
             if(config.controller_config->REFRESH_ENABLE)
             {
-                if (config.controller_config->REF_STAGGER_ENABLE) {
-                    // RTL 对齐：读取 RANK_TREFI_START_VALUES 数组，每个 Rank 独立配置偏移（对应 Rank${i}TrefiStartValue 寄存器）
-                    const auto& start_values = config.controller_config->RANK_TREFI_START_VALUES;
-                    double offset_ns = (rank_id < start_values.size()) ? start_values[rank_id]
-                                     : (current_trefi.to_seconds() * 1e9 / config.mem_spec->TotalNumOfLogicalRanks * rank_id);
-                    next_refresh_trigger_time = current_trefi + sc_core::sc_time(offset_ns, sc_core::SC_NS);
-                    std::cout << "[RefreshMachine Init] RankId: " << rank_id << " StaggerOffset: " << offset_ns << " ns NextTriggerTime: " << next_refresh_trigger_time << std::endl;
-                } else {
-                    next_refresh_trigger_time = current_trefi;
-                    std::cout << "[RefreshMachine Init] RankId: " << rank_id << " NextTriggerTime: " << next_refresh_trigger_time << std::endl;
-                }
+                next_refresh_trigger_time = static_cast<unsigned>(refresh_interval/(config.mem_spec->tCK_mc * config.mem_spec->NumOfBanksPerLogicalRank)) * config.mem_spec->tCK_mc * rank_id;
             }
             else
             {
                 next_refresh_trigger_time = sc_core::sc_max_time();
             }
 
-            rank_address = BankAddress(0,cs,cid,rank_id);
+            rank_address = BankAddress(0,0,pch_id,cs,cid,rank_id);
 
             _refresh_trans = new tlm::tlm_generic_payload();
             _refresh_trans->set_address(0);
@@ -69,28 +53,21 @@ class RefreshMachine{
             _refresh_trans->set_response_status(tlm::TLM_OK_RESPONSE);
             _refresh_trans->set_command(tlm::TLM_IGNORE_COMMAND);
 
-            dfi_extension = new DfiExtension();
-            _refresh_trans->set_extension(dfi_extension);
-
+            cmd_extension = new CmdExtension();
+            _refresh_trans->set_extension(cmd_extension);
         }
-
         ~RefreshMachine()
         {
             delete _refresh_trans;
-            // delete dfi_extension; // 在删除refresh_trans的时候，dfi_extension也会被删除
+            // delete dfi_extension; // 在删除refresh_trans的时候，cmd_extension也会被删除
         }
 
-        void UpdateTempRefreshMultiplier(unsigned multiplier) {
-            if (multiplier == 0) multiplier = 1;
-            current_trefi = _configure.mem_spec->tREFI_mc / multiplier;
-        }
-
-        // check the rank bank is closed, so that the refresh command can be issued
+        // check the rank bank is closed, so that the refresh commnad can be issued
         // rank bank has two condition:
-        //  1. all banks dont allocated to bsc, so the bank must be in closed state(or idle state);
-        //  2. some banks has allocated the bsc, so these banks needed to be closed first(bsc should send pre command), then refresh command can be issued;
-        // however in the RTL design, if the refresh command is not critical(refresh command postponeed exceed the threshold), then the refresh command not to be serverd until critical
-        // if set bsc waiting for refresh, the active bsc should send precharge command, and then keep idle
+        //   1. all banks dont allocated to bsc, so the bank must be in closed state(or idle state);
+        //   2. some banks has allocated the bsc, so these banks needed to be closed first(bsc should send pre command), then refresh command can be issued;
+        //however in the RTL design, if the refresh command is not critical(refresh command postponeed exceed the threshold), then the refresh command not to be serverd until critical
+        // if set bsc waiting for referesh, the active bsc should send precharge command, and then keep idle
         bool IsAllBanksClosed()
         {
             auto ba2bsc_index_table = _bank_slice_manager.GetBa2BscTable();
@@ -103,14 +80,7 @@ class RefreshMachine{
                 }
                 auto bsc_index = ba2bsc_index_table->at(bank_id);
                 auto bank_slice = bank_slice_map->at(bsc_index).get();
-
-                if (!_configure.controller_config->REFAB_ENABLE) {
-                    if (bank_slice->GetBaAddr().bank != current_refsb_ba) {
-                        continue;
-                    }
-                }
-
-                if(bank_slice->IsPageOpen())
+                if((bank_slice_map->at(bsc_index))->IsPageOpen())
                 {
                     return false;
                 }
@@ -130,13 +100,6 @@ class RefreshMachine{
                 }
                 auto bsc_index = ba2bsc_index_table->at(bank_id);
                 auto bank_slice = bank_slice_map->at(bsc_index).get();
-
-                if (!_configure.controller_config->REFAB_ENABLE) {
-                    if (bank_slice->GetBaAddr().bank != current_refsb_ba) {
-                        continue;
-                    }
-                }
-
                 (bank_slice_map->at(bsc_index))->SetRefreshWaiting();
             }
         }
@@ -144,121 +107,63 @@ class RefreshMachine{
         void Evaluate()
         {
             next_command = Command::NOP;
-            if(sc_core::sc_time_stamp() >= next_refresh_trigger_time)
+            if( sc_core::sc_time_stamp() >= next_refresh_trigger_time)
             {
-                next_refresh_trigger_time += current_trefi;
+                next_refresh_trigger_time += refresh_interval;
                 refresh_pending_count++;
             }
-            if(refresh_pending_count > 0)
+            if(refresh_pending_count>0)
             {
-                // H: 协议合规检查——连续两次刷新间隔不得超过 5×tREFI（JEDEC 4.13.6）
-                if (!is_critical && last_ref_sent_time != sc_core::SC_ZERO_TIME) {
-                    sc_core::sc_time gap = sc_core::sc_time_stamp() - last_ref_sent_time;
-                    if (gap > current_trefi * 5) {
-                        is_critical = true;
-                        std::cout << "@" << sc_core::sc_time_stamp() << ": [JEDEC] Refresh gap " << gap
-                                  << " exceeds 5*tREFI=" << current_trefi * 5 << ", Critical Enter (protocol compliance)!" << std::endl;
-                    }
-                }
-
-                if(refresh_pending_count >= post_pone_threshold && !is_critical) {
-                    is_critical = true;
-                    std::cout << "@" << sc_core::sc_time_stamp() << ": RefreshPendingCount: " << refresh_pending_count << ", Critical Enter! Lock system." << std::endl;
-                }
-                
-                if(IsAllBanksClosed())
-                {
-                    if (_configure.controller_config->REFAB_ENABLE) {
-                        next_command = Command::REFab;
-                    } else {
-                        next_command = Command::REFsb;
-                        rank_address.bank = current_refsb_ba;
-                    }
-                }
+                if(IsAllBanksClosed() )
+                    next_command = Command::REFab;
                 else
                 {
-                    if(is_critical)
-                    {
-                        SetBankInRefreshWaiting();
-                    }
-                    // A: 推测性刷新（Speculative Refresh）——系统空闲时主动关页发刷新
-                    else if (IsSystemIdle())
+                    if(IsRefreshCritical())
                     {
                         SetBankInRefreshWaiting();
                     }
                 }
             }
+            // if(sc_core::sc_time_stamp() >= next_refresh_trigger_time)
+            // {
+            //     if(sc_core::sc_time_stamp() >= next_refresh_trigger_time + refresh_interval)
+            //     {
+            //         next_refresh_trigger_time += refresh_interval;
+            //         state = State::Regular;
+            //     }
+            //     
+            //     if(state == State::Regular)
+            //     {
+            //         bool do_refresh = true;
+            //         if(IsRefreshCritical())
+            //         {
+            //             SetBankInRefreshWaiting();
+            //         }
+            //         else
+            //         {
+            //             if(IsAllBanksClosed())
+            //             {
+            //                 do_refresh = false;
+            //                 refresh_pending_count++;
+            //                 next_refresh_trigger_time+= refresh_interval;
+            //             }
+            //         }
+            //         if(do_refresh)
+            //         {
+            //             next_command = Command::REFab;
+            //         }
+            //     }
+            // }
         }
-        // if(sc_core::sc_time_stamp() >= next_refresh_trigger_time)
-        // {
-        //     if(sc_core::sc_time_stamp() >= next_refresh_trigger_time + refresh_interval)
-        //     {
-        //         next_refresh_trigger_time += refresh_interval;
-        //         state = State::Regular;
-        //     }
-
-        //     if(state == State::Regular)
-        //     {
-        //         bool do_refresh = true;
-        //         if(IsRefreshCritical())
-        //         {
-        //             SetBankInRefreshWaiting();
-        //         }
-        //         else
-        //         {
-        //             if(IsAllBanksClosed())
-        //             {
-        //                 do_refresh = false;
-        //                 refresh_pending_count++;
-        //                 next_refresh_trigger_time+= refresh_interval;
-        //             }
-        //         }
-        //         if(do_refresh)
-        //         {
-        //             next_command = Command::REFab;
-        //         }
-        //     }
-        // }
 
         void Update(const CommandTuple::Type& sending_cmd)
         {
             Command update_cmd = std::get<Command>(sending_cmd);
-            if(update_cmd == Command::REFab || update_cmd == Command::REFsb)
+            if(update_cmd == Command::REFab)
             {
-                if (update_cmd == Command::REFsb) {
-                    current_refsb_ba = (current_refsb_ba + 1) % _configure.mem_spec->NumOfBanksPerBg;
-                }
-
-                std::cout << "@" << sc_core::sc_time_stamp() << ": Send " << (update_cmd == Command::REFab ? "REFab" : "REFsb") << std::endl;
-                last_ref_sent_time = sc_core::sc_time_stamp(); // H: 记录用于 5×tREFI 合规检查
-
-                recent_ref_timestamps.push_back(sc_core::sc_time_stamp());
-                size_t burst_limit = (_configure.mem_spec->RefMode == RefModeTypeDDR5::FGR) ? 9 : 5;
-                if (recent_ref_timestamps.size() > burst_limit) {
-                    recent_ref_timestamps.pop_front();
-                }
-
                 assert(refresh_pending_count > 0);
                 refresh_pending_count--;
-                
-                if(refresh_pending_count <= post_pone_low_threshold && is_critical) {
-                    is_critical = false;
-                    std::cout << "@" << sc_core::sc_time_stamp() << ": RefreshPendingCount: " << refresh_pending_count << ", FreeRefreshCritical!" << std::endl;
-                }
-
-                // RTL 对齐：普通 REF 发出后，对 rank 内所有 bank 触发 RAADEC 退火（cnt_raa -= RAADEC）
-                {
-                    auto ba2bsc_index_table = _bank_slice_manager.GetBa2BscTable();
-                    auto bank_slice_map = _bank_slice_manager.GetBankSliceMap();
-                    unsigned raadec = _configure.controller_config->RAADEC;
-                    for (auto bank_id : rank_banks) {
-                        if (ba2bsc_index_table->find(bank_id) == ba2bsc_index_table->end()) continue;
-                        auto bsc_index = ba2bsc_index_table->at(bank_id);
-                        bank_slice_map->at(bsc_index)->DecreaseRaa(raadec);
-                    }
-                }
-
-                if(is_critical)
+                if(IsRefreshCritical())
                 {
                     SetBankInRefreshWaiting();
                 }
@@ -266,10 +171,6 @@ class RefreshMachine{
                 {
                     FreeRefreshCritical();
                 }
-            }
-            else if(update_cmd == Command::RFMab || update_cmd == Command::RFMsb)
-            {
-                std::cout << "@" << sc_core::sc_time_stamp() << ": Send " << (update_cmd == Command::RFMab ? "RFMab" : "RFMsb") << std::endl;
             }
         }
 
@@ -285,14 +186,6 @@ class RefreshMachine{
                 }
                 auto bsc_index = ba2bsc_index_table->at(bank_id);
                 auto bank_slice = bank_slice_map->at(bsc_index).get();
-
-                // REFsb 模式下只解锁目标 Bank，其他 Bank 的 waiting 状态保持不变
-                if (!_configure.controller_config->REFAB_ENABLE) {
-                    if (bank_slice->GetBaAddr().bank != current_refsb_ba) {
-                        continue;
-                    }
-                }
-
                 (bank_slice_map->at(bsc_index))->ClearRefreshWaiting();
             }
         }
@@ -302,7 +195,7 @@ class RefreshMachine{
             return next_command;
         }
 
-        sc_core::sc_time& GetRefreshCommandAvailTime() { return command_avail_time; } // this function will return the command can be sent available time based on the AC Timing, if the command is NOP, return sc_max_time()
+        sc_core::sc_time& GetRefreshCommandAvailTime() { return command_avail_time; } // this function will return the command can be sent available time based on the AC Timing, if the command is NOP, re
 
         inline unsigned GetRankId() const { return rank_id; }
         inline unsigned GetCs() const { return cs; }
@@ -310,54 +203,44 @@ class RefreshMachine{
         inline unsigned GetPendingCount() const { return refresh_pending_count; }
 
         inline const BankAddress& GetRankAddress() const { return rank_address; }
-        inline bool IsRefreshCritical() const { return is_critical; }
+        inline bool IsRefreshCritical() const { return refresh_pending_count >= post_pone_threshold; }
 
-        inline bool IsRefreshCommandAvail() const { 
-            if (next_command == Command::NOP || command_avail_time > sc_core::sc_time_stamp()) return false;
-            
-            size_t burst_limit = (_configure.mem_spec->RefMode == RefModeTypeDDR5::FGR) ? 9 : 5;
-            if (recent_ref_timestamps.size() == burst_limit) {
-                if (sc_core::sc_time_stamp() - recent_ref_timestamps.front() < current_trefi) {
-                    return false; // Burst limit reached
-                }
-            }
-            return true;
-        }
+        inline bool IsRefreshCommandAvail() const { return next_command != Command::NOP && command_avail_time <= sc_core::sc_time_stamp(); }
 
         ReadyCommands GetRefreshAvailCommand()
         {
             ReadyCommands ready_commands;
             if(IsRefreshCommandAvail())
             {
-                ready_commands.emplace_back(next_command, 0, rank_address, command_avail_time, false);
+                ready_commands.emplace_back(next_command,0,rank_address,command_avail_time,CmdSrc::RankTransaction,_refresh_trans);
             }
             return ready_commands;
         }
 
         sc_core::sc_time GetNextRefreshTriggerTime()
         {
-            return std::min(next_refresh_trigger_time, command_avail_time);
+            return std::min(next_refresh_trigger_time,command_avail_time);
         }
 
         void Print()
         {
-            std::cout << "RankId: " << rank_id
-            << " RankAddress: " << rank_address
-            << " RefreshPendingCount: " << refresh_pending_count
-            << " NextTriggerTime: " << next_refresh_trigger_time
-            << " Next Command: " << next_command.to_string()
-            << " Command availalbe time: " << command_avail_time
-            << " Is Related Bank Closed: " << IsAllBanksClosed()
-            << "\t";
-            std::cout << "Related Bank Index: { ";
+            std::cout << "RankId: " << rank_id 
+                      << " RankAddress: " << rank_address
+                      << " RefreshPendingCount: " << refresh_pending_count
+                      << " NextTriggerTime: " << next_refresh_trigger_time
+                      << " Next Command: " << next_command.to_string()
+                      << " Command avalilable time: " << command_avail_time
+                      << " Is Related Bank Closed: " << IsAllBanksClosed()
+                      << "\t";
+            std::cout << "Related Bank Index:{ ";
             for(auto bank_id: rank_banks)
             {
                 std::cout << bank_id << " ";
             }
-            std::cout << "}" << std::endl;
+            std::cout<<"}"<<std::endl;
         }
 
-        tlm::tlm_generic_payload* GetRefreshTrans() {
+        tlm::tlm_generic_payload* GetRefreshTrans(){
             return _refresh_trans;
         }
 
@@ -367,12 +250,11 @@ class RefreshMachine{
             Regular,
             Pulledin
         } state = State::Regular;
-
         const unsigned rank_id; // logical rank id, real rank id, also the cs and cid
         const unsigned cs;
         const unsigned cid;
         Command next_command{Command::NOP};
-        sc_core::sc_time current_trefi;
+        const sc_core::sc_time refresh_interval;
 
         BankSliceManager& _bank_slice_manager;
         const Configure& _configure;
@@ -380,42 +262,19 @@ class RefreshMachine{
         BankAddress rank_address;
 
         tlm::tlm_generic_payload* _refresh_trans;
-        DfiExtension* dfi_extension;
+        CmdExtension* cmd_extension;
+
 
         sc_core::sc_time command_avail_time{sc_core::sc_max_time()};
-        sc_core::sc_time next_refresh_trigger_time; // the initial refresh trigger time should be set to staggered, based on the rank id and total rank number to decide the stagger time;
+        sc_core::sc_time next_refresh_trigger_time; // the initial refresh trigger time should be set to stagged, based on the rank id and total rank number to decide the stagger time;
         std::vector<unsigned> rank_banks; // banks belongs to the logical rank, the recorded bank id should be real ba
         std::vector<unsigned> allocated_banks; // record the banks that are allocated bsc
 
         unsigned refresh_pending_count{0};
-        bool is_critical{false};
 
         const unsigned post_pone_threshold; // if refresh_pending_count >= this value, then the refresh will set to critical;
-        const unsigned post_pone_low_threshold;
-        unsigned current_refsb_ba{0};
 
-        std::deque<sc_core::sc_time> recent_ref_timestamps;
-
-        // H: 记录上一次实际发出 REF 的时间戳，用于 5×tREFI 合规检查
-        sc_core::sc_time last_ref_sent_time{sc_core::SC_ZERO_TIME};
-
-        // A: 推测性刷新——检测系统是否空闲（无已分配的 BSC 正在处理交易）
-        bool IsSystemIdle() const {
-            auto allocated_bsc = _bank_slice_manager.GetAllocatedBscSet();
-            if (allocated_bsc.empty()) return true;
-            auto bank_slice_map = _bank_slice_manager.GetBankSliceMap();
-            for (auto bsc_index : allocated_bsc) {
-                auto bs = bank_slice_map->at(bsc_index).get();
-                // 只要有任何 BSC 还有有效的读写命令待发，就不算空闲
-                if (bs->IsRdCmdAvail() || bs->IsWrCmdAvail() ||
-                    bs->IsRdRowCmdAvail() || bs->IsWrRowCmdAvail()) {
-                    return false;
-                }
-            }
-            return true;
-        }
 };
-
     } // namespace Controller
 } // namespace dmu
 

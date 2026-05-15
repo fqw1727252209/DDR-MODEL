@@ -120,6 +120,23 @@ InputProcess::InputProcess(const Configure& config, Scheduler& scheduler)
         unallocated_wr_cam_index_set.insert(i);
     }
 }
+InputProcess::InputProcess(const Configure& config, Scheduler& scheduler, unsigned pch_index)
+: _config(config)
+, _address_decoder(*config.address_decoder)
+, _scheduler(scheduler)
+, pch_index(pch_index)
+{
+    std::cout << "InputProcess Module created" << std::endl;
+    for(unsigned i = 0; i < config.controller_config->RD_CAM_DEPTH; ++i)
+    {
+        unallocated_rd_cam_index_set.insert(i);
+    }
+    for(unsigned i = 0; i < config.controller_config->WR_CAM_DEPTH; ++i)
+    {
+        unallocated_wr_cam_index_set.insert(i);
+    }
+}
+
 
 void
 InputProcess::AcceptRequest(tlm::tlm_generic_payload& trans)
@@ -145,6 +162,7 @@ InputProcess::AcceptRequest(tlm::tlm_generic_payload& trans)
         UifExtension* uif_ext = request->get_extension<UifExtension>();
         InputProcessReq req_trans = InputProcessReq(*request);
         DecodedAddress sdram_address = _address_decoder.decodeAddress(request->get_address());
+        sdram_address.pseudo_channel = pch_index;
         request->get_extension<StatisticExtension>()->RecordDecodedAddress(sdram_address);
         req_trans.SetCmdType();
         if(req_trans.cmd_type == CmdType::RD)
@@ -173,12 +191,12 @@ InputProcess::AcceptRequest(tlm::tlm_generic_payload& trans)
             InputProcessReq rmw_rd_trans = InputProcessReq(*rmw_rd_childTrans);
             rmw_rd_trans.sdram_addr = sdram_address;
             rmw_rd_trans.cam_index = AllocateRdCamIndex();
-            rmw_rd_trans.setCmdType(CmdType::RMW);
+            rmw_rd_trans.SetCmdType(CmdType::RMW);
 
             InputProcessReq rmw_wr_trans = InputProcessReq(*rmw_wr_childTrans);
             rmw_wr_trans.sdram_addr = sdram_address;
             rmw_wr_trans.cam_index = AllocateWrCamIndex();
-            rmw_wr_trans.setCmdType(CmdType::RMW);
+            rmw_rd_trans.SetCmdType(CmdType::RMW);
 
             rmw_rd_trans.rmw_related_cam_index = rmw_wr_trans.cam_index;
             rmw_wr_trans.rmw_related_cam_index = rmw_rd_trans.cam_index;
@@ -276,8 +294,8 @@ InputProcess::DetectAddrCollision()
     }
     else if(!wr_pip_buffer.empty())
     {
-        _cmd_type_temp = rd_pip_buffer.front().cmd_type;
-        pip_buffer_sdram_addr = rd_pip_buffer.front().sdram_addr;
+        _cmd_type_temp = wr_pip_buffer.front().cmd_type;
+        pip_buffer_sdram_addr = wr_pip_buffer.front().sdram_addr;
     }
     else {
         std::cerr<< " Impossible Scenery" << std::endl;

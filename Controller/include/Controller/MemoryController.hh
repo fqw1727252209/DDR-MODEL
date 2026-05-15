@@ -13,6 +13,7 @@
 
 #include "Controller/common/Command.hh"
 #include "Controller/common/ControllerCommon.hh"
+#include "Common/logger.hh"
 #include "Common/CommonDefine.hh"
 #include "Configure/Configure.hh"
 #include "Controller/SdramConstraint.hh"
@@ -24,6 +25,7 @@
 #include "Controller/CmdSelect.hh"
 #include "Controller/RefreshMachineManager.hh"
 
+#include "Controller/common/DfiExtension.hh"
 #include "sysc/communication/sc_clock.h"
 #include "sysc/kernel/sc_module.h"
 #include "sysc/kernel/sc_time.h"
@@ -36,8 +38,8 @@ namespace dmu{
     namespace Controller{
 
         // TLM tlm::util nb_transport_fw // 上游调用，下游实现
-        // TLM tlm::util nb_transport_bw // 反馈数据，反馈写的响应，简单回调
-        // 
+        // TLM tlm::util nb_transport_bw // 反馈数据，反馈写的响应,简单回调
+        //
 
 class MemoryController: public sc_core::sc_module{
 
@@ -50,11 +52,11 @@ public:
     , iSocket("iSocket")
     , _config(config)
     , _sdram_constraint(dynamic_cast<SdramConstraintDDR5_3ds*>(sdram_constraint))
-    , payload_event_queue(this, &MemoryController::pipline_method)
+    , payload_event_queue(this,&MemoryController::pipline_method)
     , dfi_cycle_time(config.mem_spec->tCK_mc)
     , ddr_cycle_time(config.mem_spec->tCK)
-    , phy_cmd_delay(config.controller_config->PHY_CMD_DELAY * config.mem_spec->tCK)
-    , phy_wdat_delay(config.controller_config->PHY_WDAT_DELAY * config.mem_spec->tCK)
+    // , phy_cmd_delay(config.controller_config->PHY_CMD_DELAY * config.mem_spec->tCK_mc)
+    // , phy_wdat_delay(config.controller_config->PHY_WDAT_DELAY * config.mem_spec->tCK_mc)
     {
         tSocket.register_nb_transport_fw(this, &MemoryController::nb_transport_fw);
 
@@ -62,15 +64,28 @@ public:
 
         _scheduler = std::make_unique<Scheduler>(config);
         _input_process = std::make_unique<InputProcess>(config, *_scheduler);
-        _bankslice_manager = std::make_unique<BankSliceManager>(*_scheduler, config);
+        _bankslice_manager = std::make_unique<BankSliceManager>(*_scheduler,config);
         _mode_switch = std::make_unique<ModeSwitch>(*_scheduler, *_bankslice_manager, config);
         _cmd_select = std::make_unique<CmdSelect>(config, *_bankslice_manager);
-        _refresh_machine_manager = std::make_unique<RefreshMachineManager>(*_bankslice_manager, config);
+        _refresh_machine_manager = std::make_unique<RefreshMachineManager>(*_bankslice_manager,config,0);
+
+        Logger::getInstance(std::string(name)).initialize(std::string(name),"log/",std::string(name)+"_mc");
+        DMU_LOG_INFO_N(std::string(name),"MC initialized");
+
+        dfi_payload = new tlm::tlm_generic_payload();
+        dfi_payload->set_address(0);
+        dfi_payload->set_data_ptr(nullptr);
+        dfi_payload->set_data_length(0);
+        dfi_payload->set_streaming_width(0);
+        dfi_payload->set_response_status(tlm::TLM_OK_RESPONSE);
+        dfi_payload->set_command(tlm::TLM_IGNORE_COMMAND);
+
+        dfi_extension = new DfiCmdExtension(config.mem_spec->FreqRatio ,false);
+        dfi_payload->set_extension(dfi_extension);
 
         _scheduler->RegisterBa2BscTable(_bankslice_manager->GetBa2BscTable());
         _scheduler->RegisterBscSliceMap(_bankslice_manager->GetBankSliceMap());
         SC_HAS_PROCESS(MemoryController);
-
 
         SC_METHOD(ControllerMethod);
         sensitive<< ctrl_event;
@@ -87,9 +102,8 @@ public:
                                        sc_core::sc_time& delay);
 
     tlm::tlm_sync_enum nb_transport_bw(tlm::tlm_generic_payload& trans,
-                                       tlm::tlm_phase& phase,
-                                       sc_core::sc_time& delay);
-
+                                       tlm::tlm_phase &phase,
+                                       sc_core::sc_time &delay);
 public:
 
     void end_of_simulation() override;
@@ -136,21 +150,20 @@ private:
             credit_trans->set_extension<UifSideBandExtension>(uif_side_band_extension);
             tlm::tlm_phase phase = UIF_CREDIT;
             sc_core::sc_time delay{sc_core::SC_ZERO_TIME};
-            tSocket->nb_transport_bw(*credit_trans, phase, delay);
+            tSocket->nb_transport_bw(*credit_trans, phase,delay);
         }
     }
 
-
     sc_core::sc_in<bool> dfi_clock;
 
-    //SC_METHOD, the main simulate process driven by event
+    //SC_METHOD, the main simulate process driven-by event
     void ControllerMethod();
 
     void AcTimingUpdate();
 
     void CmdSend();
     void ReqUpdate();
-    // do addr collsion detect, and back-pressure, and set pip busy
+    // do addr collision detect, and back-pressure, and set pip busy
     void CqStore();
     // if the ctrl_event is triggered, then do the nb_transport_fw, else store the request, and do AcceptRequest(trans) in pip process stage
     void PipProcess();
@@ -169,29 +182,11 @@ private:
     const sc_core::sc_time dfi_cycle_time; // dfi clk time
     const sc_core::sc_time ddr_cycle_time;
 
-    const sc_core::sc_time phy_cmd_delay;
-    const sc_core::sc_time phy_wdat_delay;
+    tlm::tlm_generic_payload* dfi_payload;
+    DfiCmdExtension* dfi_extension;
 
-    // sc_core::sc_time data_trans_time{sc_core::SC_ZERO_TIME}; // record the data busy time
-    // sc_core::sc_time last_column_trans_time{sc_core::SC_ZERO_TIME};
-    // bool DfiDataChannelBusy{false};
-
-    unsigned trans_send{0};
-
-    std::unordered_map<unsigned, tlm::tlm_generic_payload*> resp_queue;
-
-    inline void AddTrans2ResonseQueue(unsigned trans_id, tlm::tlm_generic_payload* trans)
-    {
-        resp_queue.insert(std::make_pair(trans_id,trans));
-        trans->acquire();
-    }
-    void RemoveTransFromResonseQueue(unsigned trans_id, tlm::tlm_generic_payload* trans)
-    {
-        // trans->release();
-        resp_queue.erase(trans_id);
-    }
 };
 
-}
+    }
 }
 #endif

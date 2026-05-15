@@ -1,5 +1,8 @@
 #include <cassert>
 #include <utility>
+
+
+#include "Common/CommonDefine.hh"
 #include "Controller/InputProcess.hh"
 #include "Controller/CamEntry.hh"
 
@@ -19,11 +22,13 @@ CamEntry::CamEntry(InputProcessReq& pip_req)
 }
 
 void
-CamEntry::SetAllocateBsc(BSC_INDEX allocated_bsc_index)
+CamEntry::SetAllocateBsc(BSC_INDEX bsc_index)
 {
+    DPRINT_INFO(TOP_DEBUG, "Cmd Set Allocate Bsc", "set allocated:%d ,[CamEntry]",bsc_index);
     is_page_hit = false;
-    allocated_bsc_index = allocated_bsc_index;
+    allocated_bsc_index = bsc_index;
     is_allocated = true;
+    this->print();
 }
 
 void

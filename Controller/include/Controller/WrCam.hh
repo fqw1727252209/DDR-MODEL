@@ -29,8 +29,8 @@ class WrCam: public CamIF
     public:
         WrCam() = delete;
         ~WrCam() = default;
-        explicit WrCam(const Configure& config)
-        : CamIF(config.controller_config->WR_CAM_DEPTH)
+        explicit WrCam(const Configure& config,unsigned pch_id)
+        : CamIF(config.controller_config->WR_CAM_DEPTH,pch_id)
         , _config(config)
         {
             tpw_cam_credit = _config.controller_config->TPW_CREDIT;
@@ -57,6 +57,8 @@ class WrCam: public CamIF
         // check the ba related order list has the avail cam index to be selected
         bool IsAvailBaOrderListEmpty(RealBaIndex ba_addr) override;
 
+        unsigned GetVaildCamSize();
+
         inline void SetWdataReady(CAM_INDEX cam_index)
         {
             GetCamEntry(cam_index)->data_ready = true;
@@ -79,8 +81,7 @@ class WrCam: public CamIF
         {
             return (_config.controller_config->WR_COMBINE_ENABLE) &&
             (
-                // Implement with Codex
-                //TODO: write combine condition
+                //TODO: Write combine condition
                 // if WR_COMBINE_ENABLE is true, then has wr cam has chance to do write combine
                 // first is write data or read
                 false
@@ -190,8 +191,8 @@ class WrCam: public CamIF
         unsigned tpw_run_lenth_cnt{0};
         bool tpw_fill_level_pos{false};
 
-        bool is_cam_expired;
-        bool is_cam_collision;
+        bool is_cam_expired{false};
+        bool is_cam_collision{false};
 
         bool is_tpw_critical{false};
 

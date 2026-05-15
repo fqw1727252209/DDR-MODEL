@@ -22,18 +22,18 @@ Command::to_string() const
         "ACT", // RAS command begin
         "PRE",
 
-        "PRESB",
-        "REFSB",
-        "RFMSB", // this three same bank command, will implent in same banks in all bank group, s.t 4 bg and 2 banks orgnazition
-                 // the command will implement in bank 0, bank 2, bank 4, bank 6;
+        "PREsb",
+        "REFsb",
+        "RFMsb",  // this three same bank command, will implent in same banks in all bank group, s.t 4 bg and 2 banks orgnazition
+                  // the command will implement in bank 0, bank 2, bank 4, bank 6;
 
-        "PREAB", // rank command begin
-        "REFAB",
-        "RFMAB",
-        "SRE",
-        "SREF",
-        "PDE",
-        "PDX"
+        "PREab", // rank command begin
+        "REFab",
+        "RFMab",
+        // "SRE",
+        // "SREF",
+        // "PDE",
+        // "PDX"
     };
     return stringOfCommand[type];
 }
@@ -86,6 +86,38 @@ Command::IsRefCommand() const
     return type == Type::REFab || type == Type::REFsb || type == Type::RFMab || type == Type::RFMsb;
 }
 
+unsigned
+Command::GetCommandLength(bool is_2n_mode) const
+{
+    if(!is_2n_mode)
+    {
+        switch(type)
+        {
+            case Command::ACT:
+            case Command::WR:
+            case Command::WRA:
+            case Command::RD:
+            case Command::RDA:
+                return 2;
+            default:
+                return 1;
+        }
+    }
+    else
+    {
+        switch(type)
+        {
+            case Command::ACT:
+            case Command::WR:
+            case Command::WRA:
+            case Command::RD:
+            case Command::RDA:
+                return 4;
+            default:
+                return 2;
+        }
+    }
+}
 
     } // namespace Controller
 } // namespace dmu

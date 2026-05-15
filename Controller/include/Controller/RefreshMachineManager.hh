@@ -9,19 +9,20 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+
 namespace dmu{
     namespace Controller{
 
 class RefreshMachineManager{
 
     public:
-        RefreshMachineManager( BankSliceManager& bank_slice_manager,const Configure& config)
+        RefreshMachineManager( BankSliceManager& bank_slice_manager,const Configure& config,unsigned pch_id)
         : _bank_slice_manager(bank_slice_manager)
         , _config(config)
         {
-            for(int i = 0; i < config.mem_spec->TotalNumOfLogicalRanks; i++){
+            for(int i = 0; i < config.mem_spec->NumOfLogicalRanksPerPseudoChannel; i++){
                 refresh_rank_ids.emplace_back(i);
-                refreshMachines.emplace(i,std::make_unique<RefreshMachine>(i, bank_slice_manager,config));
+                refreshMachines.emplace(i,std::make_unique<RefreshMachine>(i, bank_slice_manager,config,pch_id));
             }
         }
 
@@ -43,23 +44,6 @@ class RefreshMachineManager{
 
         bool IsRefreshReadyCommandsEmpty(){
             refresh_ready_commands.clear();
-
-            auto bsc_map = _bank_slice_manager.GetBankSliceMap();
-            auto allocated_bsc = _bank_slice_manager.GetAllocatedBscSet();
-            for (auto bsc_index : allocated_bsc) {
-                auto bs = bsc_map->at(bsc_index).get();
-                if (bs->IsRfmReq()) {
-                    Command cmd = _config.controller_config->REFAB_ENABLE ? Command::RFMab : Command::RFMsb;
-                    // RTL 对齐：RFMsb 仅在 FGR 模式下允许（表 2-7），非 FGR 强制降级为 RFMab
-                    if (cmd == Command::RFMsb && _config.mem_spec->RefMode != RefModeTypeDDR5::FGR) {
-                        cmd = Command::RFMab;
-                        std::cout << "@" << sc_core::sc_time_stamp() << ": [RFM] WARNING: RFMsb not allowed in non-FGR mode, fallback to RFMab" << std::endl;
-                    }
-                    BankAddress ba = bs->GetBaAddr();
-                    refresh_ready_commands.emplace_back(cmd, 0, ba, sc_core::sc_time_stamp(), false);
-                }
-            }
-
             for(auto& refresh_machine : refreshMachines){
                 auto refresh_commands = refresh_machine.second->GetRefreshAvailCommand();
                 if(!refresh_commands.empty())
@@ -90,18 +74,6 @@ class RefreshMachineManager{
             for(auto& refresh_machine : refreshMachines){
                 if(refresh_machine.first == sending_cmd_rank_index)
                     refresh_machine.second->Update(sending_cmd);
-            }
-
-            // RFM 发送后清理对应 BankSlice 的 rfm_req 标志并重置 act_counter
-            if (sending_cmd_type == Command::RFMab || sending_cmd_type == Command::RFMsb) {
-                auto bsc_map = _bank_slice_manager.GetBankSliceMap();
-                auto allocated_bsc = _bank_slice_manager.GetAllocatedBscSet();
-                for (auto bsc_index : allocated_bsc) {
-                    auto bs = bsc_map->at(bsc_index).get();
-                    if (bs->GetBaAddr().real_cid == sending_cmd_ba_addr.real_cid) {
-                        bs->ClearRfmReq();
-                    }
-                }
             }
         }
 

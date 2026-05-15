@@ -1,178 +1,207 @@
 #ifndef __LOAD_CONFIG_FROM_JSON_HH__
 #define __LOAD_CONFIG_FROM_JSON_HH__
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <set>
 #include <string>
+#include <type_traits>
+#include <vector>
 
-#include <systemc>
+
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
+#include <systemc>
+
 
 #include "Common/CommonDefine.hh"
 
-// #ifdef DEBUG
-// // 定义 DEBUG_PRINT 宏
+constexpr const std::string_view headline =
+    "--------------------------------------------------------------------------"
+    "-------------------------------";
 
-// #define DEBUG_PRINT_VALUE(_message) \
-// std::cout<<"debug info: "<< #_message <<" = " <<_message <<std::endl;
+// Compile-time type trait to detect std::vector<T>
+template <typename T> struct is_vector : std::false_type {};
+template <typename T> struct is_vector<std::vector<T>> : std::true_type {};
+template <typename T> inline constexpr bool is_vector_v = is_vector<T>::value;
 
-// #define DEBUG_PRINT(_message) \
-// std::cout<<"debug info: "<<_message <<std::endl;
+// Compile-time type trait to detect std::set<T>
+template <typename T> struct is_set : std::false_type {};
+template <typename T> struct is_set<std::set<T>> : std::true_type {};
+template <typename T> inline constexpr bool is_set_v = is_set<T>::value;
 
-// #define DEBUG_PRINT_TIME(_message) \
-// std::cout<<"debug info: "<<"time: "<<sc_core::sc_time_stamp()<<":\t "<<_message <<std::endl;
-// #else
-// // 如果没有定义 DEBUG 宏，DEBUG_PRINT 宏不做任何事
-// #define DEBUG_PRINT_VALUE(_message)
-// #define DEBUG_PRINT(_message)
-// #define DEBUG_PRINT_TIME(_message)
-// #endif
-
-// #define ABORT_MESSAGE(_message) \
-//     std::cerr<<"illegal action: "<<_message<<std::endl; \
-//     std::abort();
-
-constexpr const std::string_view headline = 
-    "=======================================================================";
-
-#define BEGIN_JSON_MAP(StructType) \
-bool ParseStruct(const rapidjson::Value& json, StructType& obj) { \
-    if (!json.IsObject()) return false; \
+#define BEGIN_JSON_MAP(StructType)                                             \
+  bool ParseStruct(const rapidjson::Value &json, StructType &obj) {            \
+    if (!json.IsObject())                                                      \
+      return false;                                                            \
     bool success = true;
 
-#define JSON_FIELD(Type, FieldName) \
-    success &= GetValue(json, #FieldName, obj.FieldName); 
-    // std::cout<<#FieldName<<": "<<obj.FieldName<<std::endl;
+#define JSON_FIELD(Type, FieldName)                                            \
+  success &= GetValue(json, #FieldName, obj.FieldName);
 
-#define JSON_NESTED_STRUCT(FieldName) \
-    if (!json.HasMember(#FieldName)) { \
-        std::cerr << "Missing JSON struct member: " << #FieldName << std::endl; \
-        std::abort(); \
-    } \
-    success &= ParseStruct(json[#FieldName], obj.FieldName);
+// Macro for optional JSON fields. Missing fields do not trigger errors.
+#define JSON_FIELD_OPTIONAL(Type, FieldName)                                   \
+  success &= GetValueOptional(json, #FieldName, obj.FieldName);
 
-#define END_JSON_MAP() \
-    return success; \
-}
+#define JSON_NESTED_STRUCT(FieldName)                                          \
+  if (!json.HasMember(#FieldName)) {                                           \
+    std::cerr << "Missing JSON struct member: " << #FieldName << std::endl;    \
+    std::abort();                                                              \
+  }                                                                            \
+  success &= ParseStruct(json[#FieldName], obj.FieldName);
 
-namespace dmu{
+#define END_JSON_MAP()                                                         \
+  return success;                                                              \
+  }
 
-class LoadConfigFromJson{
+namespace dmu {
 
-    protected:
-        rapidjson::Document doc;
-        std::string _filename;
-        virtual ~LoadConfigFromJson(){}
+class LoadConfigFromJson {
 
-    public:
-        virtual void LoadFromJson(const std::string& filename)
-        {
-            _filename = filename;
-            std::ifstream file(filename, std::ios::binary);
-            if (!file.is_open()) {
-                std::cerr << "Failed to open file: " << filename << std::endl;
-                std::abort();
-            }
+protected:
+  rapidjson::Document doc;
+  std::string _filename;
+  virtual ~LoadConfigFromJson() {}
 
-            std::string buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+  // Recursively parse a rapidjson::Value into a C++ object.
+  // Supports primitive types, std::vector<T>, and nested structs via
+  // ParseStruct.
+  template <typename T>
+  bool ParseJsonValue(const rapidjson::Value &val, T &out) {
+    if constexpr (std::is_same_v<T, std::string>) {
+      if (!val.IsString())
+        return false;
+      out = val.GetString();
+    } else if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
+      if (std::is_unsigned_v<T>) {
+        if (!val.IsUint())
+          return false;
+        out = val.GetUint();
+      } else {
+        if (!val.IsInt())
+          return false;
+        out = val.GetInt();
+      }
+    } else if constexpr (std::is_floating_point_v<T>) {
+      if (!val.IsDouble())
+        return false;
+      out = val.GetDouble();
+    } else if constexpr (std::is_same_v<T, bool>) {
+      if (!val.IsBool())
+        return false;
+      out = val.GetBool();
+    } else if constexpr (is_vector_v<T>) {
+      if (!val.IsArray())
+        return false;
+      out.clear();
+      for (rapidjson::SizeType i = 0; i < val.Size(); ++i) {
+        typename T::value_type elem{};
+        if (!ParseJsonValue(val[i], elem))
+          return false;
+        out.push_back(elem);
+      }
+    } else {
+      return ParseStruct(val, out);
+    }
 
-            // rapidjson::Document doc;
-            doc.Parse(buffer.c_str());
+    return true;
+  }
 
-            if (doc.HasParseError()) {
-                std::cerr << "JSON parse error: " << doc.GetParseError() << std::endl;
-                std::abort();
-            }
-        }
+  // Parse a JSON array into std::set<T>, aborting on duplicate elements.
+  template <typename T>
+  bool ParseJsonSet(const rapidjson::Value &val, const char *name, T &out) {
+    if (!val.IsArray())
+      return false;
+    out.clear();
+    for (rapidjson::SizeType i = 0; i < val.Size(); ++i) {
+      typename T::value_type elem{};
+      if (!ParseJsonValue(val[i], elem))
+        return false;
+      if (!out.insert(elem).second) {
+        std::cerr << "Duplicate element '" << elem << "' in JSON array '"
+                  << name << "' in file: '" << _filename << "'" << std::endl;
+        std::abort();
+      }
+    }
+    return true;
+  }
 
-        virtual bool ParseJson() = 0;
+public:
+  virtual void LoadFromJson(const std::string &filename) {
+    _filename = filename;
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+      std::cerr << "Failed to open file: " << filename << std::endl;
+      std::abort();
+    }
 
-        // ===== 类型特化：处理不同类型的JSON值 =====
-        template<typename T>
-        bool GetValue(const rapidjson::Value& parent, const char* name, T& value) {
-            if (!parent.HasMember(name)) {
-                std::cerr << "Missing JSON member: " << name << std::endl;
-                return false;
-            }
+    std::string buffer((std::istreambuf_iterator<char>(file)),
+                       std::istreambuf_iterator<char>());
 
-            const rapidjson::Value& val = parent[name];
+    doc.Parse(buffer.c_str());
 
-            // 基本类型处理,TODO: 需要添加对std::vector的处理，来支持address mapping
-            if constexpr (std::is_same_v<T, std::string>) {
-                if (!val.IsString())
-                {
-                    std::cerr<<"Json File '"<<_filename<<"': ["<< name <<"] dont match String type" <<std::endl;
-                    return false;
-                }
-                value = val.GetString();
-            }
-            else if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
-                if (std::is_unsigned_v<T>) {
-                    if (!val.IsUint())
-                    {
-                        std::cerr<<"Json File '"<<_filename<<"': ["<< name <<"] dont match Uint type" <<std::endl;
-                        return false;
-                    }
-                    value = val.GetUint();
-                } else {
-                    if (!val.IsInt())
-                    {
-                        std::cerr<<"Json File '"<<_filename<<"': ["<< name <<"] dont match Int type" <<std::endl;
-                        return false;
-                    }
-                    value = val.GetInt();
-                }
-            }
-            else if constexpr (std::is_floating_point_v<T>) {
-                if (!val.IsDouble())
-                {
-                    std::cerr<<"Json File '"<<_filename<<"': ["<< name <<"] dont match Double type" <<std::endl;
-                    return false;
-                }
-                value = val.GetDouble();
-            }
-            else if constexpr (std::is_same_v<T, bool>) {
-                if (!val.IsBool())
-                {
-                    std::cerr<<"Json File '"<<_filename<<"': ["<< name <<"] dont match Bool type" <<std::endl;
-                    return false;
-                }
-                value = val.GetBool();
-            }
-            else if constexpr (std::is_same_v<T, std::vector<typename T::value_type>>) {
-                // std::vector<ElementType> 解析：JSON Array -> C++ vector
-                if (!val.IsArray()) {
-                    std::cerr << "Json File '" << _filename << "': [" << name << "] dont match Array type" << std::endl;
-                    return false;
-                }
-                value.clear();
-                for (const auto& elem : val.GetArray()) {
-                    typename T::value_type item{};
-                    if constexpr (std::is_floating_point_v<typename T::value_type>) {
-                        if (elem.IsDouble())      item = elem.GetDouble();
-                        else if (elem.IsInt())    item = static_cast<typename T::value_type>(elem.GetInt());
-                        else if (elem.IsUint())   item = static_cast<typename T::value_type>(elem.GetUint());
-                        else { std::cerr << "Array element type mismatch in [" << name << "]" << std::endl; return false; }
-                    } else if constexpr (std::is_integral_v<typename T::value_type> && std::is_unsigned_v<typename T::value_type>) {
-                        if (!elem.IsUint()) { std::cerr << "Array element type mismatch in [" << name << "]" << std::endl; return false; }
-                        item = elem.GetUint();
-                    } else if constexpr (std::is_integral_v<typename T::value_type>) {
-                        if (!elem.IsInt()) { std::cerr << "Array element type mismatch in [" << name << "]" << std::endl; return false; }
-                        item = elem.GetInt();
-                    }
-                    value.push_back(item);
-                }
-            }
-            else {
-                // 假设是嵌套结构体，需要实现ParseStruct函数
-                return ParseStruct(val, value);
-            }
+    if (doc.HasParseError()) {
+      std::cerr << "JSON parse error: " << doc.GetParseError() << std::endl;
+      std::abort();
+    }
+  }
 
-            return true;
-        }
+  virtual bool ParseJson() = 0;
+
+  // Parse an optional JSON field. Returns true if the field is missing or
+  // parsed successfully.
+  template <typename T>
+  bool GetValueOptional(const rapidjson::Value &parent, const char *name,
+                        T &value) {
+    if (!parent.HasMember(name)) {
+      return true;
+    }
+
+    const rapidjson::Value &val = parent[name];
+    if constexpr (is_set_v<T>) {
+      if (!ParseJsonSet(val, name, value)) {
+        std::cerr << "JSON type mismatch in optional set array: '" << name
+                  << "' in file: '" << _filename << "'" << std::endl;
+        return false;
+      }
+      return true;
+    } else {
+      if (!ParseJsonValue(val, value)) {
+        std::cerr << "JSON type mismatch for optional field: '" << name
+                  << "' in file: '" << _filename << "'" << std::endl;
+        return false;
+      }
+      return true;
+    }
+  }
+
+  template <typename T>
+  bool GetValue(const rapidjson::Value &parent, const char *name, T &value) {
+    if (!parent.HasMember(name)) {
+      std::cerr << "Missing JSON member: '" << name << "' in file: '"
+                << _filename << "'" << std::endl;
+      return false;
+    }
+
+    const rapidjson::Value &val = parent[name];
+    if constexpr (is_set_v<T>) {
+      if (!ParseJsonSet(val, name, value)) {
+        std::cerr << "JSON type mismatch in set array: '" << name
+                  << "' in file: '" << _filename << "'" << std::endl;
+        return false;
+      }
+      return true;
+    } else {
+      if (!ParseJsonValue(val, value)) {
+        std::cerr << "JSON type mismatch: '" << name << "' in file: '"
+                  << _filename << "'" << std::endl;
+        return false;
+      }
+      return true;
+    }
+  }
 };
 
 } // namespace dmu
 
-#endif
+#endif // __LOAD_CONFIG_FROM_JSON_HH__

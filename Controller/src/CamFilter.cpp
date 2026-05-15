@@ -88,9 +88,9 @@ RdCamFilter::GetSelectedRdCamIndex(const WaitingList& rd_waiting_list,bool IsPag
     Candidate_Cmd expired_hit_candidate_cmd;
     Candidate_Cmd collision_candidate_cmd;
     Candidate_Cmd hpr_hit_candidate_cmd;
-    Candidate_Cmd lpr_candidate_cmd;
-    Candidate_Cmd hpr_candidate_cmd;
     Candidate_Cmd lpr_hit_candidate_cmd;
+    Candidate_Cmd hpr_candidate_cmd;
+    Candidate_Cmd lpr_candidate_cmd;
 
     for(auto& cam_index: rd_waiting_list)
     {
@@ -120,9 +120,7 @@ RdCamFilter::GetSelectedRdCamIndex(const WaitingList& rd_waiting_list,bool IsPag
            rd_cam_entry->qos.GetQosLevel() == PriorityClass::GPR)
         {
             if(rd_cam_entry->is_page_hit)
-            {
                 lpr_hit_candidate_cmd.insert(cam_index);
-            }
             lpr_candidate_cmd.insert(cam_index);
         }
         if(rd_cam_entry->qos.GetQosLevel() == PriorityClass::Invalid

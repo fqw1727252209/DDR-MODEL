@@ -31,7 +31,7 @@ class BankSlice;
 class Scheduler{
 
     public:
-        explicit Scheduler(const Configure& config);
+        explicit Scheduler(const Configure& config, unsigned pch_id = 0);
         ~Scheduler();
 
         // Get all Rd Cam used cam index
@@ -124,6 +124,8 @@ class Scheduler{
 
         std::unordered_map<RealBaIndex,BSC_INDEX>* ba2bsc_table{nullptr};
         std::unordered_map<BSC_INDEX, std::unique_ptr<BankSlice>>* bsc_index_2_bankslice{nullptr};
+
+        const unsigned _pch_id;
     private:
         // std::vector<std::vector<std::deque<CAM_INDEX>>> rd_update_ntt_temp; // bsc -
         // std::vector<std::vector<std::deque<CAM_INDEX>>> wr_update_ntt_temp;

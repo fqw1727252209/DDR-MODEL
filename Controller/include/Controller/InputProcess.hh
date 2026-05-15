@@ -65,6 +65,7 @@ class InputProcess
         // explicit InputProcess(const AddressDecoder& address_decoder);
 
         explicit InputProcess(const Configure& config, Scheduler& scheduler);
+        explicit InputProcess(const Configure& config, Scheduler& scheduler, unsigned pch_index);
 
         ~InputProcess() = default;
 
@@ -86,6 +87,7 @@ class InputProcess
         }
     private:
         const Configure& _config;
+        unsigned pch_index{0};
         // rd
         std::set<unsigned> unallocated_rd_cam_index_set;
         unsigned last_allocated_rd_cam_index;

@@ -15,7 +15,8 @@ namespace dmu {
 class DramManagerUnit {
 public:
     explicit DramManagerUnit(const std::string& name,
-        const sc_core::sc_clock& noc_clock,const unsigned chi_data_width_bits,
+        const sc_core::sc_clock& noc_clock,
+        const unsigned chi_data_width,
         const std::string& configure_base_dir, const std::string& configure_filename,const std::string& output_dir="./");
 
     ~DramManagerUnit() = default;

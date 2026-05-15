@@ -81,7 +81,7 @@ target_compile_definitions(CHIPort
 )
 
 # 在独立项目模式或者开启了测试选项下添加可执行文件
-if(BUILD_TEST OR CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # 添加CHITrafficExample.cpp作为可执行文件PortTest
     add_executable(PortTest ${CMAKE_CURRENT_SOURCE_DIR}/src/CHITrafficExample.cpp)
 
@@ -91,6 +91,4 @@ if(BUILD_TEST OR CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             CHIPort
     )
     
-    # 统一输出到 build_dir 的根目录，方便找到
-    set_target_properties(PortTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()

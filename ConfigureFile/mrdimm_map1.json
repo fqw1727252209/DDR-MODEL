@@ -1,0 +1,5 @@
+{
+    "address_mapping_filename":"am_ddr5_16Gbx8_brc_map1.json",
+    "mem_spec_filename":"16Gb_DDR5_7200-6400_B_x8_mrdimm.json",
+    "controller_config_filename":"mrdimm_controller_config.json"
+}

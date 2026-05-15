@@ -1,45 +1,45 @@
 {
-    "MemoryId": "16Gb_DDR5_7200-6400_B_x8",
-    "MemoryType": "DDR5",
-    "Is_3ds": false,
-    "NumOfChannels": 1,
-    "NumOfSubChannels": 2,
-    "RefreshMode": 1,
-    "CmdMode": 1,
-    "FreqRatio": 4,
-    "BurstLenth": 16,
-    "MaxBurstLenth": 16,
-    "MemArchitect": {
-        "NumOfDimmRanks": 2,
-        "NumOfPhysicalRanksPerChannel": 2,
-        "NumOfLogicalRanksPerPhysicalRank": 1,
-        "TotalNumOfLogicalRanks": 2,
-        "TotalNumOfDevices": 8
+
+    "MemoryId":"16Gb_DDR5_7200-6400_B_x8",
+    "MemoryType":"DDR5",
+    "Is_3ds":false,
+    "RefreshMode":1,
+    "CmdMode":1,
+    "FreqRatio":4,
+    "BurstLenth":16,
+    "MaxBurstLenth":16,
+    "MemArchitect":{
+        "NumOfChannels":1,
+        "NumOfSubChannelsPerChannel":2,
+        "NumOfPseudoChannelsPerSubChannel":1,
+        "NumOfPhysicalRanksPerPseudoChannel":2,
+        "NumOfLogicalRanksPerPhysicalRank":2
     },
-    "Device": {
-        "width": 8,
-        "DataRate": 2,
-        "TotalNumOfBanksPerDevice": 32,
-        "NumOfBankGroupsPerDevice": 8,
-        "NumOfBanksPerBg": 4,
-        "NumOfColumns": 1024,
-        "NumOfRows": 65536,
-        "RAAIMT": 32,
-        "RAAMMT": 3,
-        "RAADEC": 1
+    "Device":{
+        "DeviceWidth":8,
+        "DataRate":2,
+        "NumOfBankGroupsPerDevice":8,
+        "NumOfBanksPerBankGroup":4,
+        "NumOfColumns":1024,
+        "NumOfRows":65536,
+
+        "RAAIMT":32,
+        "RAAMMT":3,
+        "RAADEC":1
     },
-    "SpeedBins": {
-        "CLK": 0.312,
-        "Freq": 3200,
-        "CL": 52,
-        "nRCD": 52,
-        "nRP": 52,
-        "CWL": 50,
-        "tRCD": 16.0,
-        "tRP": 16.0,
-        "tRAS": 32.0
+    
+    "SpeedBins":{
+        "CLK":0.312,
+        "Freq":3200,
+        "CL":52,
+        "nRCD":52,
+        "nRP":52,
+        "CWL":50,
+        "tRCD":16.0,
+        "tRP":16.0,
+        "tRAS":32.0
     },
-    "AcTiming": {
+    "AcTiming":{
         "tCCD_L_slr": 5.0,
         "tCCD_L_WR_slr": 20.0,
         "tCCD_L_WR2_slr": 10.0,

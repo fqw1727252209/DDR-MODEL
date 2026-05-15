@@ -24,10 +24,9 @@ class CamIF
     public:
         CamIF() = delete;
         virtual ~CamIF() = default;
-        explicit CamIF(const unsigned& _cam_depth)
-        : is_cam_collision(false)
-        , is_cam_expired(false)
-        , cam_depth(_cam_depth)
+        explicit CamIF(const unsigned& _cam_depth,unsigned pch_id)
+        : cam_depth(_cam_depth)
+        , pch_id(pch_id)
         {
             // cam_store.reserve(cam_depth);
         }
@@ -42,12 +41,10 @@ class CamIF
         CAM_INDEX oldest_page_hit_cam_index; // find oldest page-hit and allocated
         CAM_INDEX oldest_page_miss_cam_index; // find oldest page-miss and allocated
 
-        bool is_cam_collision{false};
-        bool is_cam_expired{false};
-
         std::unordered_map<RealBaIndex,unsigned> num_of_page_hit_cmd_per_bank; // record the
 
     public:
+        const unsigned pch_id;
         // get the cam cmd entring order
         inline const OrderList& GetOrderList() const {return this->cam_order_list;}
         // whether the Cam OrderList is empty, also mean whether the cam is empty
@@ -67,6 +64,22 @@ class CamIF
             // DPRINT_INFO(true, "Wr Cam Ba Get: ", "stage 0");
             // assert(ba_cmds_order_list.find(ba_addr) != ba_cmds_order_list.end());
             return ba_cmds_order_list.at(ba_addr);
+        }
+        inline unsigned GetBasamePageCmdNum(RealBaIndex ba_addr, unsigned open_page)
+        {
+            unsigned same_page_cmd_num = 0;
+            if(IsBaOrderListEmpty(ba_addr))
+                return 0;
+            auto ba_order_list = this->GetBaOrderList(ba_addr);
+            for(auto cam_index: ba_order_list)
+            {
+                auto cam_entry = cam_store.at(cam_index).get();
+                if(cam_entry->sdram_addr.row == open_page)
+                {
+                    same_page_cmd_num++;
+                }
+            }
+            return same_page_cmd_num;
         }
         inline void SetBaPageHit(RealBaIndex ba_addr, unsigned open_page)
         {
@@ -152,7 +165,7 @@ class CamIF
                     return this->GetCamEntry(*it)->allocated_bsc_index;
                 }
             }
-            // Implement with Codex
+
             //TODO: return empty value
         }
         BSC_INDEX GetOldestPageMissCmdBsc() // this situation may be empty value
@@ -164,7 +177,7 @@ class CamIF
                     return this->GetCamEntry(*it)->allocated_bsc_index;
                 }
             }
-            // Implement with Codex
+
             //TODO: return empty value
         }
         // Is Cam Empty

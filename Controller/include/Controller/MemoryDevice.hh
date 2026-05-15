@@ -44,18 +44,11 @@ public:
     ~MemoryDevice() override;
 
 private:
-    const std::string output_dir;
     sc_core::sc_time ddr_clock_period;
+    const sc_core::sc_time tCL;
+    const sc_core::sc_time tCWL;
     tlm_utils::peq_with_cb_and_phase<MemoryDevice> payload_event_queue;
     void pipline_method(tlm::tlm_generic_payload& trans, const tlm::tlm_phase& phase);
-
-    sc_core::sc_time last_cmd_time{sc_core::SC_ZERO_TIME};
-
-    const sc_core::sc_time phy_rdat_delay{sc_core::sc_time(62.4, sc_core::SC_NS)};
-    std::ofstream outFile;
-    std::ofstream outFile_dfi_cmd;
-
-    sc_core::sc_time record_last_trans_time{sc_core::SC_ZERO_TIME};
 };
 
     }

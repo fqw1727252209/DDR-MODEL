@@ -3,6 +3,8 @@
 
 #include "Common/Common.hh"
 #include "Configure/AddressDecoder.hh"
+#include "tlm_core/tlm_2/tlm_generic_payload/tlm_phase.h"
+#include <optional>
 
 namespace dmu{
     namespace Controller{
@@ -12,6 +14,12 @@ DECLARE_EXTENDED_PHASE(DFI_WDAT_BEGIN);
 DECLARE_EXTENDED_PHASE(DFI_WDAT_END);
 DECLARE_EXTENDED_PHASE(DFI_RDAT_BEGIN);
 DECLARE_EXTENDED_PHASE(DFI_RDAT_END);
+
+DECLARE_EXTENDED_PHASE(CA_CMD);
+DECLARE_EXTENDED_PHASE(DQ_RDAT_BEGIN);
+DECLARE_EXTENDED_PHASE(DQ_RDAT_END);
+DECLARE_EXTENDED_PHASE(DQ_WDAT_BEGIN);
+DECLARE_EXTENDED_PHASE(DQ_WDAT_END);
 
 enum class GlobalRdWrState
 {
@@ -37,7 +45,6 @@ inline std::string PrintState(GlobalRdWrState state)
     else
         return "Invalid";
 }
-
 
 enum class AddrCollisionType{
     No_Collision,
@@ -65,8 +72,6 @@ static std::array<std::string, static_cast<size_t>(AddrCollisionType::Invalid)+1
     "Invalid"
 };
 
-
-
 // this class record the middle stage update cam index,
 // should be based on bsc level, if one bsc do some action, then need to update the bsc's ntt,
 // rd and wr are both managered seperately
@@ -75,12 +80,12 @@ static std::array<std::string, static_cast<size_t>(AddrCollisionType::Invalid)+1
 // first, updated event and get the updated and matchest cam index,
 // second, update the matchest cam index into ntt;
 enum class UpdateType: uint8_t{
-    CmdExe = 0, // for 
-    Pre_Act, // 
+    CmdExe = 0, // for
+    Pre_Act, //
     NewCmdStore,
     BscAllocate,
     BrokenTerminate,
-    WrCombine, // only write has
+    WrCombine,  // only write has
     Invalid
 };
 
@@ -94,12 +99,108 @@ static std::array<std::string, static_cast<size_t>(UpdateType::Invalid)+1> Updat
     "Invalid"
 };
 
+enum class BscCmdType: unsigned{
+    Activate = 0,
+    Precharge,
+    RdWr,
+    Invalid
+};
+
+static std::array<std::string, static_cast<size_t>(BscCmdType::Invalid)+1> BscCmdTypeStr = {
+    "Activate",
+    "Precharge",
+    "RdWr",
+    "Invalid"
+};
+
+enum class ActCmdType: unsigned{
+    RdExpired,
+    WrExpired,
+    RdFlush,
+    WrFlush,
+    RdCritical,
+    WrCritical,
+    RdAdvance,
+    WrAdvance,
+    RdNormal,
+    WrNormal,
+    Invalid
+};
+
+static std::array<std::string, static_cast<size_t>(ActCmdType::Invalid)+1> ActCmdTypeStr = {
+    "RdExpired",
+    "WrExpired",
+    "RdFlush",
+    "WrFlush",
+    "RdCritical",
+    "WrCritical",
+    "RdAdvance",
+    "WrAdvance",
+    "RdNormal",
+    "WrNormal",
+    "Invalid"
+};
+
+enum class PreCmdType: unsigned{
+    RdExpired,
+    WrExpired,
+    RdFlush,
+    WrFlush,
+    RdCritical,
+    WrCritical,
+    RdNormal,
+    WrNormal,
+    Force,
+    Device,
+    Invalid
+};
+
+static std::array<std::string, static_cast<size_t>(PreCmdType::Invalid)+1> PreCmdTypeStr = {
+    "RdExpired",
+    "WrExpired",
+    "RdFlush",
+    "WrFlush",
+    "RdCritical",
+    "WrCritical",
+    "RdNormal",
+    "WrNormal",
+    "Force",
+    "Device",
+    "Invalid"
+};
+
+enum class RdWrCmdType: unsigned{
+    RdExpired,
+    WrExpired,
+    RdFlush,
+    WrFlush,
+    RdCritical,
+    WrCritical,
+    RdNormal,
+    WrNormal,
+    Invalid
+};
+
+static std::array<std::string, static_cast<size_t>(RdWrCmdType::Invalid)+1> RdWrCmdTypeStr = {
+    "RdExpired",
+    "WrExpired",
+    "RdFlush",
+    "WrFlush",
+    "RdCritical",
+    "WrCritical",
+    "RdNormal",
+    "WrNormal",
+    "Invalid"
+};
+
 class BankAddress{
 public:
     unsigned bank;
     unsigned bankgroup;
     unsigned cid;
     unsigned cs;
+    unsigned pseudo_ch;
+    unsigned sub_ch;
     unsigned ch;
     unsigned real_ba;
     unsigned real_bg;
@@ -107,7 +208,7 @@ public:
 
     BankAddress();
 
-    BankAddress(unsigned ch, unsigned cs, unsigned cid, unsigned real_cid);
+    BankAddress(unsigned ch, unsigned sub_ch, unsigned pch_ch, unsigned cs, unsigned cid, unsigned real_cid);
 
     BankAddress(const DecodedAddress& sdram_addr);
 
@@ -118,28 +219,41 @@ public:
     bool is_rank_address{false};
 
     friend std::ostream& operator<<(std::ostream& os, const BankAddress& ba);
-
 };
 
-// struct UifSideBandInfo
-// {
-//     //Port -> DDRC
-//     bool uif_gpr_go2critical{false};
-//     bool uif_gpw_go2critical{false};
-//     //DDRC -> Port
-//     unsigned tpw_credit{0};
-//     unsigned lpr_credit{0};
-//     unsigned hpr_credit{0};
+struct RankAddress{
+    unsigned cid;
+    unsigned cs;
+    unsigned pseudo_ch;
+    unsigned sub_ch;
+    unsigned ch;
 
-//     bool tpw_credit_valid{false};
-//     bool lpr_credit_valid{false};
-//     bool hpr_credit_valid{false};
-// };
+    unsigned real_cid;
+};
 
+struct CmdAddress{
+    using RANK_INDEX = unsigned;
+    using BANK_GROUP_INDEX = unsigned;
+    using BANK_INDEX = unsigned;
+
+    std::optional<unsigned> col;
+    std::optional<unsigned> row;
+    std::optional<unsigned> bank;
+    std::optional<unsigned> bank_group;
+    std::optional<unsigned> cid;
+    unsigned cs;
+    std::optional<unsigned> pseudo_ch;
+    unsigned sub_ch;
+    unsigned ch;
+
+    RANK_INDEX real_rank_id;
+    std::optional<BANK_GROUP_INDEX> real_bg;
+    std::optional<BANK_INDEX> real_ba;
+    std::optional<std::vector<BANK_INDEX>> real_ba_vec;
+};
 
 bool IsFullCycle(sc_core::sc_time time, sc_core::sc_time CycleTime);
 sc_core::sc_time AlignAtNext(sc_core::sc_time time, sc_core::sc_time alignment);
 
     }
-}
 #endif

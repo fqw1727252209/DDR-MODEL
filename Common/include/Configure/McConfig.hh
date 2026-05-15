@@ -2,7 +2,6 @@
 #define __MC_CONFIG_HH__
 
 #include "Configure/LoadControllerConfig.hh"
-#include <vector>
 
 namespace dmu{
     namespace Controller{
@@ -83,64 +82,110 @@ public:
 
     const bool PREFER_HIT_HPR;
 
-    //Refresh
-    const bool REFRESH_ENABLE;
-    const unsigned REFRESH_PENDING_THRESHOLD;
-    const unsigned REFRESH_PENDING_THRESHOLD_FGR; // MaxPostpone2x
-    const bool REFRESH_POSTPONE_ENABLE;
+// mrdimm
+        const bool RD_CNT_THR_EN;
+        const unsigned RD_CNT_THR;
+        const bool WR_CNT_THR_EN;
+        const unsigned WR_CNT_THR;
+        const bool SW_WR_DELAY_EN;
+        const unsigned SW_WR_DELAY;
+        const bool PREFER_WR;
+        const bool SW_WR_CAM_THR_EN;
+        const unsigned SW_WR_CAM_THR;
 
-    const unsigned POSTPONE_LOW_THRESHOLD_SAME_BANK;
-    const unsigned POSTPONE_LOW_THRESHOLD_ALL_BANK;
+        const unsigned RD_OPEN_BANK_NUM;
+        const unsigned WR_OPEN_BANK_NUM;
+        const unsigned RD_KEEP_PAGE_NUM;
+        const unsigned WR_KEEP_PAGE_NUM;
+        const unsigned PAGE_CLOSE_TIME;
 
-    const bool ACT_MASK_NORMAL_REFRESH_ENABLE;
-    const bool CRITICAL_REFRESH_MASK_ACT_ENABLE;
-    
-    const bool REFAB_ENABLE;
-    const unsigned RAA_THRESHOLD;
-    const bool REF_STAGGER_ENABLE;
-    const unsigned MR4_TEMP_MULTIPLIER;
+        //Refresh
+        const bool REFRESH_ENABLE;
+        const unsigned REFRESH_PENDING_THRESHOLD;
+        const bool REFRESH_MANAGER_ENABLE;
+        const bool REFRESH_POSTPONE_ENABLE;
 
-    // RTL 对齐：Rank 独立偏置与 RFM 滑动窗口
-    const std::vector<double> RANK_TREFI_START_VALUES;
-    const unsigned RAAMULT;
-    const unsigned RAADEC;
-    const unsigned RAAIMT;
-    const unsigned RAAMMT;
-    // const REFRESH_TYPE; // 0 - Refresh all banks, 1 - Refresh same banks, 2 - Refresh all Bank and Refresh Same Bank Mixed
+        const unsigned POSTPONE_LOW_THRESHOLD_SAME_BANK;
+        const unsigned POSTPONE_LOW_THRESHOLD_ALL_BANK;
 
-    //CHI Port
-    const unsigned RD_DAT_INFO_DEPTH;
-    const unsigned WR_DAT_BUFFER_DEPTH;
+        const bool ACT_MASK_NORMAL_REFRESH_ENABLE;
+        const bool CRITICAL_REFRESH_MASK_ACT_ENABLE;
 
-    const unsigned LPR_QUEUE_DEPTH;
-    const unsigned HPR_QUEUE_DEPTH;
-    const unsigned TPW_QUEUE_DEPTH;
+        //CHI Port
+        const unsigned RD_DAT_INFO_DEPTH;
+        const unsigned WR_DAT_BUFFER_DEPTH;
 
-    const unsigned WR_CQ_DEPTH;
-    const unsigned RD_CQ_DEPTH;
+        const unsigned LPR_QUEUE_DEPTH;
+        const unsigned HPR_QUEUE_DEPTH;
+        const unsigned TPW_QUEUE_DEPTH;
 
-    const unsigned RSP0_FIFO_DEPTH;
-    const unsigned RSP1_FIFO_DEPTH;
-    const unsigned RSP2_FIFO_DEPTH;
-    const unsigned RSP3_FIFO_DEPTH;
-    const unsigned RSP4_FIFO_DEPTH;
-    const unsigned RSP5_FIFO_DEPTH;
+        const unsigned WR_CQ_DEPTH;
+        const unsigned RD_CQ_DEPTH;
 
-    const bool RETRY_GPR_EXPIRED_ENABLE;
-    const bool RETRY_GPW_EXPIRED_ENABLE;
-    const unsigned RETRY_GPR_EXPIRED_TIME;
-    const unsigned RETRY_GPW_EXPIRED_TIME;
+        const unsigned RSP0_FIFO_DEPTH;
+        const unsigned RSP1_FIFO_DEPTH;
+        const unsigned RSP2_FIFO_DEPTH;
+        const unsigned RSP3_FIFO_DEPTH;
+        const unsigned RSP4_FIFO_DEPTH;
+        const unsigned RSP5_FIFO_DEPTH;
 
-    const unsigned MIN_LGPR_QUEUE_DEPTH;
-    const unsigned MIN_HPR_QUEUE_DEPTH;
+        const bool RETRY_GPR_EXPIRED_ENABLE;
+        const bool RETRY_GPW_EXPIRED_ENABLE;
+        const unsigned RETRY_GPR_EXPIRED_TIME;
+        const unsigned RETRY_GPW_EXPIRED_TIME;
 
-    const bool PA_RDWR_SWITCH_FAST;
-    const unsigned PORT_AGING_INIT; // DFI cycle
+        const unsigned MIN_LGPR_QUEUE_DEPTH;
+        const unsigned MIN_HPR_QUEUE_DEPTH;
 
-    explicit McConfig(const ControllerConfig& controller_config);
+        const bool PA_RDWR_SWITCH_FAST;
+        const unsigned PORT_AGING_INIT; // DFI cycle
 
-};
+        const bool CBUSY_ENABLE;
+        const bool MPAM_ENABLE;
 
-    }
+        const bool QOS_MAPPING;
+        const bool SRC_ID_MAPPING;
+        const unsigned QOS_THRESHOD_GROUP0;
+        const unsigned QOS_THRESHOD_GROUP1;
+        const unsigned QOS_THRESHOD_GROUP2;
+        const std::set<unsigned> SRC_ID_GROUP0;
+        const std::set<unsigned> SRC_ID_GROUP1;
+        const std::set<unsigned> SRC_ID_GROUP2;
+
+        const unsigned PROTQ_FREE_THRESHOLD_LGPR;
+        const unsigned PROTQ_MIDDLE_THRESHOLD_LGPR;
+        const unsigned PROTQ_BUSY_THRESHOLD_LGPR;
+        const unsigned PROTQ_FREE_THRESHOLD_HPR;
+        const unsigned PROTQ_MIDDLE_THRESHOLD_HPR;
+        const unsigned PROTQ_BUSY_THRESHOLD_HPR;
+        const unsigned PROTQ_FREE_THRESHOLD_WR;
+        const unsigned PROTQ_MIDDLE_THRESHOLD_WR;
+        const unsigned PROTQ_BUSY_THRESHOLD_WR;
+        const unsigned PROTQ_FREE_THRESHOLD_RD;
+        const unsigned PROTQ_MIDDLE_THRESHOLD_RD;
+        const unsigned PROTQ_BUSY_THRESHOLD_RD;
+
+        const unsigned CAM_FREE_THRESHOLD_LGPR;
+        const unsigned CAM_MIDDLE_THRESHOLD_LGPR;
+        const unsigned CAM_BUSY_THRESHOLD_LGPR;
+        const unsigned CAM_FREE_THRESHOLD_HPR;
+        const unsigned CAM_MIDDLE_THRESHOLD_HPR;
+        const unsigned CAM_BUSY_THRESHOLD_HPR;
+        const unsigned CAM_FREE_THRESHOLD_WR;
+        const unsigned CAM_MIDDLE_THRESHOLD_WR;
+        const unsigned CAM_BUSY_THRESHOLD_WR;
+
+        const bool CAM_BASED;
+        const bool PROTQ_BASED;
+
+        explicit McConfig(const ControllerConfig& controller_config);
+    };
+
+
+
 }
+}
+
+
+
 #endif
